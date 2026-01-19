@@ -61,3 +61,53 @@ The final stage used the Splunk SDK for Python to bridge the gap between local c
    * **Connectivity:** Establishes a secure connection to the Splunk Management API via port 8089.
    * **Idempotency:** The script checks if the search already exists. If found, it deletes the old version to perform an update; otherwise, it creates a new "Saved Search."
    * **Deployment:** It pushes the specific search query and cron schedule defined in the YAML directly into the Splunk engine.
+
+
+###################################################################################################################
+
+# Local Lab Connectivity (Pinggy)
+
+Since this lab uses a **local Splunk instance**, we utilize an **SSH reverse tunnel via [Pinggy.io](https://pinggy.io)** to allow GitHub Actions to securely communicate with the Splunk Management API.
+
+---
+
+## 1. Prerequisites
+
+* **Docker:** Splunk must be running in a container with port **8089** mapped.  
+* **SSH:** Standard macOS/Linux terminal access.
+
+---
+
+## 2. Establishing the Tunnel
+
+To start the tunnel, run the following command on your local host:
+
+```bash
+ssh -p 443 -R0:localhost:8089 tcp@a.pinggy.io
+
+### 3. Required GitHub Secrets
+
+Every time the tunnel is restarted, the **Host** and **Port** will change.  
+You must update these in your repository under:
+
+**GitHub Repository → Settings → Secrets and variables → Actions**
+
+| Secret Name       | Description                     | Example Value                                    |
+|--------------------|----------------------------------|--------------------------------------------------|
+| `SPLUNK_HOST`     | The URL provided by Pinggy       | `ltgxl-174-17-125-88.a.free.pinggy.link`        |
+| `SPLUNK_PORT`     | The 5-digit port provided by Pinggy | `54321`                                         |
+| `SPLUNK_PASSWORD` | Your local Splunk admin password | `YourPassword123`                               |
+
+### 4. Security & Cleanup
+
+* **Ephemeral Links:** The Pinggy URL is temporary and expires when the SSH session is closed.  
+* **SSL Verification:** The CI/CD script is configured with `verify=False` to bypass SSL warnings caused by Splunk's default self-signed certificates.  
+* **Revocation:** This method does not require persistent OAuth access or credit card verification.
+
+---
+
+### Why Use Pinggy for This Lab?
+
+* 💳 **No Credit Card Required:** Unlike ngrok, Pinggy allows TCP tunneling on their free tier without identity verification.  
+* ⚙️ **No Installation Needed:** Uses native OpenSSH already built into the OS.  
+* 🌐 **Portable:** Allows the CI/CD pipeline to follow you even if your local IP address changes.
