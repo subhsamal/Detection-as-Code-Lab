@@ -1,0 +1,25 @@
+name: Suspicious PowerShell Encoded Command
+id: det-001
+status: experimental
+description: Detects PowerShell execution with encoded commands
+author: Your Name
+date: 2026-01-18
+detection:
+  product: windows
+  category: process_creation
+  search: |
+    index=windows sourcetype="WinEventLog:Security" EventCode=4688
+    | search (CommandLine="*powershell*" OR CommandLine="*pwsh*")
+    | search CommandLine="*-enc*" OR CommandLine="*-encodedcommand*"
+    | table _time, Computer, User, CommandLine, ParentCommandLine
+schedule:
+  cron: "*/5 * * * *"
+  condition: "count > 0"
+metadata:
+  severity: high
+  mitre_attack:
+    - T1059.001
+    - T1027
+  false_positives:
+    - Legitimate admin scripts
+    - Software deployment tools
