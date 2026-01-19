@@ -52,3 +52,11 @@ jobs:
         run: |
           sleep 20
           python scripts/verify_alert.py
+
+      - name: Cleanup Lab Environment
+        if: always() # This ensures cleanup runs even if the verification fails
+        env:
+          SPLUNK_HOST: ${{ secrets.SPLUNK_HOST }}
+          SPLUNK_PORT: ${{ secrets.SPLUNK_PORT }}
+          SPLUNK_PASSWORD: ${{ secrets.SPLUNK_PASSWORD }}
+        run: python scripts/cleanup_test.py
