@@ -1,5 +1,5 @@
 # Detection-as-Code: Automated Splunk Alert Pipeline
-
+![Splunk DaC Pipeline](https://github.com/subhsamal/Detection-as-Code-Lab/actions/workflows/ci-cd.yml/badge.svg)
 ## 1. Project Overview
 This project implements a full **Detection-as-Code (DaC)** lifecycle. It automates the process of defining security detections in YAML, validating them via Python, and deploying them to a containerized Splunk Enterprise instance using the Splunk REST API.
 
