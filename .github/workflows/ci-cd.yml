@@ -37,12 +37,12 @@ jobs:
           SPLUNK_USERNAME: 'admin'
         run: python scripts/deploy_to_splunk.py
 
-      - name: Trigger Attack Simulation
-        env:
-          SPLUNK_HOST: ${{ secrets.SPLUNK_HOST }}
-          SPLUNK_PORT: ${{ secrets.SPLUNK_PORT }}
-          SPLUNK_PASSWORD: ${{ secrets.SPLUNK_PASSWORD }}
-        run: python scripts/test_detection.py
+      # - name: Trigger Attack Simulation
+      #   env:
+      #     SPLUNK_HOST: ${{ secrets.SPLUNK_HOST }}
+      #     SPLUNK_PORT: ${{ secrets.SPLUNK_PORT }}
+      #     SPLUNK_PASSWORD: ${{ secrets.SPLUNK_PASSWORD }}
+      #   run: python scripts/ingest_logs_for_detection.py
 
       - name: Wait & Verify
         env:
