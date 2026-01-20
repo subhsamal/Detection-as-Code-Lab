@@ -49,22 +49,19 @@ jobs:
           SPLUNK_USERNAME: 'admin'
         run: python scripts/deploy_to_splunk.py
 
-      - name: Trigger Attack Simulation
+      - name: 3. Ingest Logs for Detection
         env:
           SPLUNK_HOST: ${{ secrets.SPLUNK_HOST }}
           SPLUNK_PORT: ${{ secrets.SPLUNK_PORT }}
           SPLUNK_PASSWORD: ${{ secrets.SPLUNK_PASSWORD }}
-        run: python scripts/ingest_logs_for_detection.py
+        run: python tests/ingest_logs_for_detection.py
 
-      - name: 4. Wait & Verify
+      - name: 4. Verify Alert Triggered
         env:
           SPLUNK_HOST: ${{ secrets.SPLUNK_HOST }}
           SPLUNK_PORT: ${{ secrets.SPLUNK_PORT }}
           SPLUNK_PASSWORD: ${{ secrets.SPLUNK_PASSWORD }}
-        run: |
-          # Increased sleep to 45s to account for ingestion/indexing lag
-          sleep 45
-          python tests/verify_alert.py
+        run: python tests/verify_alert.py
 
       - name: 5. Cleanup Lab Environment
         if: always()
