@@ -25,6 +25,18 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install splunk-sdk urllib3 pyyaml
+      
+      - name: Pre-flight Tunnel Check
+        run: |
+          echo "Checking connectivity to Splunk at ${{ secrets.SPLUNK_HOST }}..."
+          if ! curl -k -m 5 https://${{ secrets.SPLUNK_HOST }}:${{ secrets.SPLUNK_PORT }}/services/auth/login > /dev/null 2>&1; then
+            echo "::error::❌ CANNOT REACH SPLUNK TUNNEL!"
+            echo "::notice::1. Ensure your Pinggy/Tunnel terminal is still running on your Mac."
+            echo "::notice::2. Verify that GitHub Secret 'SPLUNK_HOST' and 'SPLUNK_PORT' match your current tunnel URL."
+            echo "::notice::3. The current secret is set to: ${{ secrets.SPLUNK_HOST }}"
+            exit 1
+          fi
+          echo "✅ Tunnel is alive. Proceeding..."
 
       - name: 1. Validate Detections
         run: python scripts/validate_yaml_detections.py
