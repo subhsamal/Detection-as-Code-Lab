@@ -36,7 +36,7 @@ def create_test_events():
             "description": "Benign test - Simple Write-Host from explorer (SHOULD ALERT)",
             "event": {
                 "EventCode": "4688",
-                "CommandLine": "powershell.exe -enc VwByAGkAdABlAC0ASABvAHMAdAAgACcAVABlAHMAdAAnAA==",
+                "CommandLine": "powershell.exe -encodedcommand VwByAGkAdABlAC0ASABvAHMAdAAgACcAVABlAHMAdAAnAA==",
                 "User": "testuser",
                 "Computer": "TEST-PC",
                 "ParentProcessName": "C:\\Windows\\explorer.exe",
@@ -102,7 +102,7 @@ def inject_test_events(service):
     
     try:
         # Get or create the index
-        index_name = "main"
+        index_name = "windows"
         if index_name in service.indexes:
             index = service.indexes[index_name]
         else:
@@ -128,7 +128,7 @@ def inject_test_events(service):
             # Submit to Splunk
             index.submit(
                 event_json,
-                sourcetype="_json",
+                sourcetype="WinEventLog:Security",
                 source="test_script"
             )
             
@@ -154,7 +154,7 @@ def inject_test_events(service):
         # Print the Splunk search query to verify
         print("🔍 Verification Query (run in Splunk):")
         print("-" * 70)
-        print("""index=main sourcetype=_json EventCode=4688
+        print("""index=windows sourcetype=WinEventLog:Security EventCode=4688
 | search (CommandLine="*powershell*" OR CommandLine="*pwsh*")
 | search (CommandLine="*-enc*" OR CommandLine="*-encodedcommand*")
 | rex field=CommandLine "-enc(?:odedcommand)?\s+(?<encoded_cmd>\S+)"

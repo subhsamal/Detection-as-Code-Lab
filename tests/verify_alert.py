@@ -19,7 +19,7 @@ def verify_detection(service):
     and reachable by the detection logic.
     """
     # This search specifically looks for the 'malicious' payload we injected
-    search_query = 'search index=main "BASE64_ENCODED_MALWARE"'
+    search_query = 'search index=windows ("*powershell*" OR "*pwsh*") ("-enc" OR "-encodedcommand")'
     
     print(f"🔍 Running verification search: {search_query}")
     
