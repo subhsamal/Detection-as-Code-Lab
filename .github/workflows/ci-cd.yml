@@ -55,9 +55,9 @@ jobs:
           python tests/verify_alert.py
 
       - name: 5. Cleanup Lab Environment
-        if: always() # Ensures cleanup runs even if previous steps fail
+        if: always()
         env:
           SPLUNK_HOST: ${{ secrets.SPLUNK_HOST }}
           SPLUNK_PORT: ${{ secrets.SPLUNK_PORT }}
           SPLUNK_PASSWORD: ${{ secrets.SPLUNK_PASSWORD }}
-        run: python scripts/cleanup_test.py
+        run: python tests/cleanup_test.py
