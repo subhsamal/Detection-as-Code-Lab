@@ -5,7 +5,7 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
-  workflow_dispatch: # Allows you to run this manually from the GitHub Actions tab
+  workflow_dispatch: # Allows manual triggers from the GitHub Actions tab
 
 jobs:
   validate_and_deploy:
@@ -19,17 +19,17 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          cache: 'pip' # Speeds up future runs by caching your libraries
+          cache: 'pip'
 
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install splunk-sdk urllib3
-          # If you create a requirements.txt later, use:
-          # pip install -r requirements.txt
+          pip install splunk-sdk urllib3 pyyaml
 
-      - name: Deploy to Splunk
-        # No 'continue-on-error' here. We want to know if it actually fails!
+      - name: 1. Validate Detections
+        run: python scripts/validate_yaml_detections.py
+
+      - name: 2. Deploy to Splunk
         env:
           SPLUNK_HOST: ${{ secrets.SPLUNK_HOST }}
           SPLUNK_PORT: ${{ secrets.SPLUNK_PORT }}
@@ -44,17 +44,18 @@ jobs:
           SPLUNK_PASSWORD: ${{ secrets.SPLUNK_PASSWORD }}
         run: python scripts/ingest_logs_for_detection.py
 
-      - name: Wait & Verify
+      - name: 4. Wait & Verify
         env:
           SPLUNK_HOST: ${{ secrets.SPLUNK_HOST }}
           SPLUNK_PORT: ${{ secrets.SPLUNK_PORT }}
           SPLUNK_PASSWORD: ${{ secrets.SPLUNK_PASSWORD }}
         run: |
-          sleep 20
-          python scripts/verify_alert.py
+          # Increased sleep to 45s to account for ingestion/indexing lag
+          sleep 45
+          python tests/verify_alert.py
 
-      - name: Cleanup Lab Environment
-        if: always() # This ensures cleanup runs even if the verification fails
+      - name: 5. Cleanup Lab Environment
+        if: always() # Ensures cleanup runs even if previous steps fail
         env:
           SPLUNK_HOST: ${{ secrets.SPLUNK_HOST }}
           SPLUNK_PORT: ${{ secrets.SPLUNK_PORT }}
