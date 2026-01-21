@@ -42,34 +42,109 @@ I authored a Splunk detection rule for **Suspicious PowerShell Encoded Commands*
 ---
 
 ## 4. Phase 2: Automated Validation
-To prevent "broken" rules from reaching production, we implemented a **CI (Continuous Integration)** check.
+To prevent "broken" rules from reaching production, I implemented a **CI (Continuous Integration)** check.
 
-* **Script:** `validate_detection.py`
+* **Script:** `validate_detections.py`
 * **Function:** This script programmatically verifies that the YAML follows the required schema, checking for mandatory fields like `name`, `search`, and `cron_schedule`.
 
 ---
 
 ## 5. Phase 3: SIEM Orchestration (Docker)
-I deployed Splunk Enterprise using Docker. This stage involved overcoming two critical technical hurdles:
 
-1. **Shell Syntax & Quoting:** Resolved a `dquote>` hanging prompt caused by the Zsh terminal misinterpreting the `!` character in the Splunk password. Fixed by using **single quotes** (`' '`) to encapsulate environment variables.
-2. **License Compliance:** Addressed a container crash issue by identifying and adding the `SPLUNK_GENERAL_TERMS` flag, a mandatory requirement for starting modern Splunk Docker images.
+### Docker Installation
 
-**Final Deployment Command:**
+I installed **Docker Desktop** for macOS to run Splunk in a containerized environment. The installation process involved:
+- Downloading Docker Desktop from the official website: https://www.docker.com/products/docker-desktop/
+- Installing and starting the Docker daemon
+- Verifying installation with `docker --version`
+- Resolving Docker Hub authentication by logging in and verifying email
+
+### Splunk Deployment
+
+I deployed Splunk Enterprise using Docker. This stage involved overcoming a critical technical hurdle:
+
+**License Compliance:** Addressed a container crash issue by identifying and adding the `SPLUNK_GENERAL_TERMS` flag, a mandatory requirement for starting modern Splunk Docker images.
+
+**Initial Deployment Command:**
 ```bash
 docker run -d -p 8000:8000 -p 8089:8089 \
   -e 'SPLUNK_GENERAL_TERMS=--accept-sgt-current-at-splunk-com' \
   -e 'SPLUNK_START_ARGS=--accept-license' \
-  -e 'SPLUNK_PASSWORD=YourSecurePassword123!' \
+  -e 'SPLUNK_PASSWORD=<YourSecurePassword123!>' \
   --name splunk_lab \
   splunk/splunk:latest
 ```
 
-**Note:** Replace `YourSecurePassword123!` with a strong password of your choice. The password must be at least 8 characters and meet Splunk's complexity requirements.
+**Note:** Replace `<YourSecurePassword123!>` with your chosen password. The password must be at least 8 characters and meet Splunk's complexity requirements.
+
+### Managing Splunk Container
+
+**Starting Splunk (after system restart):**
+```bash
+docker start splunk_lab
+```
+
+**Stopping Splunk:**
+```bash
+docker stop splunk_lab
+```
+
+**Checking if Splunk is running:**
+```bash
+docker ps | grep splunk_lab
+```
+
+**Accessing Splunk Web Interface:**
+- URL: http://localhost:8000
+- Username: `admin`
+- Password: `<YourSecurePassword123!>` (the password you set during initial deployment)
+
+**Retrieving forgotten password:**
+If you forget your Splunk password, you can retrieve it from the container environment variables:
+```bash
+# View the password set during container creation
+docker inspect splunk_lab | grep SPLUNK_PASSWORD
+```
 
 ---
 
-## 6. Phase 4: Programmatic Code Push
+## 6. Local Lab Connectivity (Pinggy)
+
+Since this lab uses a local Splunk instance, I utilize an SSH reverse tunnel via **Pinggy.io** to allow GitHub Actions to securely communicate with the Splunk Management API.
+
+### Prerequisites
+- **Docker**: Splunk must be running in a container with port 8089 mapped.
+- **SSH**: Standard macOS/Linux terminal access.
+
+### Establishing the Tunnel
+To start the tunnel, run the following command on your local host:
+
+```bash
+ssh -p 443 -R0:localhost:8089 tcp@a.pinggy.io
+```
+
+### Required GitHub Secrets
+Every time the tunnel is restarted, the Host and Port will change. You must update these in your **GitHub Repository Settings > Secrets and variables > Actions**:
+
+| Secret Name | Description | Example Value |
+|-------------|-------------|---------------|
+| `SPLUNK_HOST` | The URL provided by Pinggy | `ltgxl-174-17-125-88.a.free.pinggy.link` |
+| `SPLUNK_PORT` | The 5-digit port provided by Pinggy | `54321` |
+| `SPLUNK_PASSWORD` | Your local Splunk admin password | `<your-secure-password>` |
+
+### Security & Cleanup
+- **Ephemeral Links**: The Pinggy URL is temporary and expires when the SSH session is closed.
+- **SSL Verification**: The CI/CD script is configured with `verify=False` to bypass SSL warnings caused by Splunk's default self-signed certificates.
+- **Revocation**: This method does not require persistent OAuth access or credit card verification.
+
+### Why use Pinggy for this Lab?
+- **No Credit Card Required**: Unlike ngrok, Pinggy allows TCP tunneling on their free tier without identity verification.
+- **No Installation**: Uses native OpenSSH already built into the OS.
+- **Portability**: Allows the CI/CD pipeline to follow you even if your local IP address changes.
+
+---
+
+## 7. Phase 4: Programmatic Code Push
 The final stage used the Splunk SDK for Python to bridge the gap between local code and the live SIEM.
 
 * **Script:** `deploy_to_splunk.py`
@@ -106,7 +181,7 @@ For complete implementation details, see the repository.
 
 ---
 
-## 7. Detection Logic: PowerShell Encoded Commands
+## 8. Detection Logic: PowerShell Encoded Commands
 
 ### Core Detection Query
 
@@ -168,39 +243,3 @@ Maintains long-term access through automated callback mechanism.
 - Web proxy URL blocking
 
 By validating and decoding the Base64 content, this detection sees through the obfuscation layer and identifies malicious patterns that would otherwise remain hidden.
-
----
-
-## 7. Local Lab Connectivity (Pinggy)
-
-Since this lab uses a local Splunk instance, I utilize an SSH reverse tunnel via **Pinggy.io** to allow GitHub Actions to securely communicate with the Splunk Management API.
-
-### 1. Prerequisites
-- **Docker**: Splunk must be running in a container with port 8089 mapped.
-- **SSH**: Standard macOS/Linux terminal access.
-
-### 2. Establishing the Tunnel
-To start the tunnel, run the following command on your local host:
-
-```bash
-ssh -p 443 -R0:localhost:8089 tcp@a.pinggy.io
-```
-
-### 3. Required GitHub Secrets
-Every time the tunnel is restarted, the Host and Port will change. You must update these in your **GitHub Repository Settings > Secrets and variables > Actions**:
-
-| Secret Name | Description | Example Value |
-|-------------|-------------|---------------|
-| `SPLUNK_HOST` | The URL provided by Pinggy | `ltgxl-174-17-125-88.a.free.pinggy.link` |
-| `SPLUNK_PORT` | The 5-digit port provided by Pinggy | `54321` |
-| `SPLUNK_PASSWORD` | Your local Splunk admin password | `<your-secure-password>` |
-
-### 4. Security & Cleanup
-- **Ephemeral Links**: The Pinggy URL is temporary and expires when the SSH session is closed.
-- **SSL Verification**: The CI/CD script is configured with `verify=False` to bypass SSL warnings caused by Splunk's default self-signed certificates.
-- **Revocation**: This method does not require persistent OAuth access or credit card verification.
-
-### Why use Pinggy for this Lab?
-- **No Credit Card Required**: Unlike ngrok, Pinggy allows TCP tunneling on their free tier without identity verification.
-- **No Installation**: Uses native OpenSSH already built into the OS.
-- **Portability**: Allows the CI/CD pipeline to follow you even if your local IP address changes.
