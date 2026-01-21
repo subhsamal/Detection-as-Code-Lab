@@ -61,7 +61,7 @@ jobs:
           SPLUNK_HOST: ${{ secrets.SPLUNK_HOST }}
           SPLUNK_PORT: ${{ secrets.SPLUNK_PORT }}
           SPLUNK_PASSWORD: ${{ secrets.SPLUNK_PASSWORD }}
-          # TINES_WEBHOOK_URL: ${{ secrets.TINES_WEBHOOK_URL }}
+          TINES_WEBHOOK_URL: ${{ secrets.TINES_WEBHOOK_URL }}
           # TINES_API_KEY: ${{ secrets.TINES_API_KEY }} # Add this if using the API check
         run: python tests/verify_alert.py
 

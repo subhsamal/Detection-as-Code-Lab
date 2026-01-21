@@ -12,7 +12,7 @@ SPLUNK_HOST = os.getenv('SPLUNK_HOST', 'localhost')
 SPLUNK_PORT = int(os.getenv('SPLUNK_PORT', 8089))
 SPLUNK_USERNAME = os.getenv('SPLUNK_USERNAME', 'admin')
 SPLUNK_PASSWORD = os.getenv('SPLUNK_PASSWORD')
-# TINES_WEBHOOK_URL = os.getenv('TINES_WEBHOOK_URL')
+TINES_WEBHOOK_URL = os.getenv('TINES_WEBHOOK_URL')
 
 def setup_tines_alert(service):
     """
@@ -42,7 +42,7 @@ def setup_tines_alert(service):
         "is_scheduled": 1,
         "cron_schedule": "*/1 * * * *",
         "actions": "webhook",
-        # "action.webhook.param.url": TINES_WEBHOOK_URL,
+        "action.webhook.param.url": TINES_WEBHOOK_URL,
         "alert_type": "number of events",
         "alert_comparator": "greater than",
         "alert_threshold": "0",
@@ -64,18 +64,18 @@ def verify_detection_results(service):
     Based on ingest_logs_for_detection.py, we expect exactly 2 matches
     (DownloadString and Mimikatz) after exclusions are applied.
     """
-    verification_query = '''search index=windows sourcetype=WinEventLog:Security EventCode=4688
+    verification_query = r'''search index=windows sourcetype=WinEventLog:Security EventCode=4688
     | search (CommandLine="*powershell*" OR CommandLine="*pwsh*")
     | search (CommandLine="*-enc*" OR CommandLine="*-encodedcommand*")
-    | rex field=CommandLine "-enc(?:odedcommand)?\\s+(?<encoded_cmd>\\S+)"
-    | where isnotnull(encoded_cmd) AND len(encoded_cmd) >= 20
+    | rex field=CommandLine "-enc(?:odedcommand)?\s+(?<encoded_cmd>\S+)"
     | eval decoded_cmd=base64decode(encoded_cmd)
-    | search NOT [
-        (User="NT AUTHORITY\\\\SYSTEM" AND ParentProcessName IN ("*\\\\services.exe", "*\\\\svchost.exe"))
-        OR ParentProcessName IN ("*\\\\ccmexec.exe", "*\\\\CcmExec.exe", "*\\\\SMS*.exe")
-        OR ParentProcessName="*\\\\wsmprovhost.exe"
-        OR ParentProcessName="*\\\\gpscript.exe"
-      ]'''
+    | where isnotnull(decoded_cmd) AND len(encoded_cmd) >= 20
+    | search NOT (
+        (User="NT AUTHORITY\SYSTEM" AND (ParentProcessName="*\\services.exe" OR ParentProcessName="*\\svchost.exe"))
+        OR ParentProcessName IN ("*\\ccmexec.exe", "*\\CcmExec.exe", "*\\SMS*.exe")
+        OR ParentProcessName="*\\wsmprovhost.exe"
+        OR ParentProcessName="*\\gpscript.exe"
+    )'''
     
     print("Running strict verification search (checking main logic + exclusions)...")
     job = service.jobs.create(verification_query, exec_mode="blocking")
@@ -105,8 +105,7 @@ def verify_tines_received_alert():
     return True
 
 def main():
-    # if not all([SPLUNK_PASSWORD, TINES_WEBHOOK_URL]):
-    if not SPLUNK_PASSWORD:
+    if not all([SPLUNK_PASSWORD, TINES_WEBHOOK_URL]):
         print("ERROR: Missing SPLUNK_PASSWORD or TINES_WEBHOOK_URL.")
         sys.exit(1)
 
