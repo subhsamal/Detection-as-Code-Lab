@@ -20,8 +20,8 @@ def cleanup_test_data(service):
     """
     # This query finds the specific strings we used in test_detection.py
     # and test_benign.py, then pipes them to the delete command.
-    cleanup_search = 'search index=main ("BASE64_ENCODED_MALWARE" OR "Hello World") | delete'
-    
+    # Change index=main to index=windows
+    cleanup_search = 'search index=windows earliest=0 ("BASE64_ENCODED_MALWARE" OR "Hello World" OR "mimikatz") | delete'
     print(f"🧹 Running cleanup search: {cleanup_search}")
     
     try:
