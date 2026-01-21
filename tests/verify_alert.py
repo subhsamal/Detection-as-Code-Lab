@@ -12,7 +12,7 @@ SPLUNK_HOST = os.getenv('SPLUNK_HOST', 'localhost')
 SPLUNK_PORT = int(os.getenv('SPLUNK_PORT', 8089))
 SPLUNK_USERNAME = os.getenv('SPLUNK_USERNAME', 'admin')
 SPLUNK_PASSWORD = os.getenv('SPLUNK_PASSWORD')
-TINES_WEBHOOK_URL = os.getenv('TINES_WEBHOOK_URL')
+# TINES_WEBHOOK_URL = os.getenv('TINES_WEBHOOK_URL')
 
 def setup_tines_alert(service):
     """
@@ -42,7 +42,7 @@ def setup_tines_alert(service):
         "is_scheduled": 1,
         "cron_schedule": "*/1 * * * *",
         "actions": "webhook",
-        "action.webhook.param.url": TINES_WEBHOOK_URL,
+        # "action.webhook.param.url": TINES_WEBHOOK_URL,
         "alert_type": "number of events",
         "alert_comparator": "greater than",
         "alert_threshold": "0",
@@ -105,7 +105,8 @@ def verify_tines_received_alert():
     return True
 
 def main():
-    if not all([SPLUNK_PASSWORD, TINES_WEBHOOK_URL]):
+    # if not all([SPLUNK_PASSWORD, TINES_WEBHOOK_URL]):
+    if not SPLUNK_PASSWORD:
         print("ERROR: Missing SPLUNK_PASSWORD or TINES_WEBHOOK_URL.")
         sys.exit(1)
 
