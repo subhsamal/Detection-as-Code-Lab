@@ -7,7 +7,7 @@ date: 2026-01-17
 modified_by: Subh Samal
 modified_date: 2026-01-19
 version: 2.0
-schedule: "*/10 * * * *"
+schedule: "* * * * *"
 
 detection:
   product: windows
@@ -25,7 +25,7 @@ detection:
     | search NOT ParentProcessName="*\\gpscript.exe"
     | table _time, Computer, User, ParentProcessName, CommandLine, encoded_cmd
     | sort -_time
-    
+
   condition: count > 0
 
 metadata:

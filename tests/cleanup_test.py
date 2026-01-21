@@ -43,6 +43,7 @@ def main():
         print("❌ ERROR: SPLUNK_PASSWORD not set.")
         sys.exit(1)
 
+    time.sleep(180) # Delay is to allow Tines alert to trigger before clean up. 
     try:
         service = client.connect(
             host=SPLUNK_HOST,
