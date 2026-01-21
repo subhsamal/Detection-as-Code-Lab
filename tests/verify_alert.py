@@ -64,20 +64,26 @@ def verify_detection_results(service):
     Based on ingest_logs_for_detection.py, we expect exactly 2 matches
     (DownloadString and Mimikatz) after exclusions are applied.
     """
-    # Flattened to one line to prevent Parser errors with white space/newlines
-    verification_query = (
-    r'index=windows sourcetype=WinEventLog:Security EventCode=4688 '
-    r'| search (CommandLine="*powershell*" OR CommandLine="*pwsh*") '
-    r'| search (CommandLine="*-enc*" OR CommandLine="*-encodedcommand*") '
-    r'| rex field=CommandLine "-enc(?:odedcommand)?\s+(?<encoded_cmd>\S+)" '
-    r'| where isnotnull(encoded_cmd) AND len(encoded_cmd) >= 20 '
-    r'| search NOT ((User="NT AUTHORITY\SYSTEM" AND '
-    r'(ParentProcessName="*\\services.exe" OR ParentProcessName="*\\svchost.exe")) '
-    r'OR ParentProcessName IN ("*\\ccmexec.exe", "*\\CcmExec.exe", "*\\SMS*.exe") '
-    r'OR ParentProcessName="*\\wsmprovhost.exe" '
-    r'OR ParentProcessName="*\\gpscript.exe")'
-)
+    # 1. Define the query (it's okay to have newlines here for readability)
+    raw_query = r"""
+    index=windows sourcetype=WinEventLog:Security EventCode=4688 
+    | search (CommandLine="*powershell*" OR CommandLine="*pwsh*") 
+    | search (CommandLine="*-enc*" OR CommandLine="*-encodedcommand*") 
+    | rex field=CommandLine "-enc(?:odedcommand)?\s+(?<encoded_cmd>\S+)" 
+    | where isnotnull(encoded_cmd) AND len(encoded_cmd) >= 20 
+    | search NOT ((User="NT AUTHORITY\SYSTEM" AND (ParentProcessName="*\\services.exe" OR ParentProcessName="*\\svchost.exe")) 
+    OR ParentProcessName IN ("*\\ccmexec.exe", "*\\CcmExec.exe", "*\\SMS*.exe") 
+    OR ParentProcessName="*\\wsmprovhost.exe" 
+    OR ParentProcessName="*\\gpscript.exe")
+    """
 
+    # 2. SANITIZE: Remove newlines and extra spaces before sending to API
+    # This is the "Magic Fix" for the 400 Error
+    verification_query = " ".join(raw_query.split())
+
+    # 3. Print it to your GitHub Action logs so you can see exactly what Splunk gets
+    print(f"DEBUG: Sending query: {verification_query}")
+    
     print("Running strict verification search (checking main logic + exclusions)...")
     job = service.jobs.create(verification_query, exec_mode="blocking")
     result_count = int(job["resultCount"])
