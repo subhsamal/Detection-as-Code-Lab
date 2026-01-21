@@ -15,35 +15,17 @@ detection:
   
   search: |
     index=windows sourcetype=WinEventLog:Security EventCode=4688
-    | search (CommandLine="*powershell*" OR CommandLine="*pwsh*")
-    | search (CommandLine="*-enc*" OR CommandLine="*-encodedcommand*")
-    
-    `comment("Extract the encoded command portion")`
+    (CommandLine="*powershell*" OR CommandLine="*pwsh*")
+    (CommandLine="*-enc*" OR CommandLine="*-encodedcommand*")
     | rex field=CommandLine "-enc(?:odedcommand)?\s+(?<encoded_cmd>\S+)"
     | where isnotnull(encoded_cmd) AND len(encoded_cmd) >= 20
-    
-    `comment("Validate it's actually Base64 by attempting to decode")`
-    | eval decoded_cmd=base64decode(encoded_cmd)
-    | where isnotnull(decoded_cmd)
-    
-    `comment("Apply exclusions for known legitimate sources")`
-    | search NOT [
-        `comment("Exclude SYSTEM account running from legitimate services")`
-        (User="NT AUTHORITY\\SYSTEM" AND ParentProcessName IN ("*\\services.exe", "*\\svchost.exe"))
-        
-        `comment("Exclude SCCM/Configuration Manager")`
-        OR ParentProcessName IN ("*\\ccmexec.exe", "*\\CcmExec.exe", "*\\SMS*.exe")
-        
-        `comment("Exclude Windows Remote Management (legitimate remote PS sessions)")`
-        OR ParentProcessName="*\\wsmprovhost.exe"
-        
-        `comment("Exclude Group Policy processing (domain-managed scripts)")`
-        OR ParentProcessName="*\\gpscript.exe"
-      ]
-    
-    | table _time, Computer, User, ParentProcessName, CommandLine, decoded_cmd
+    | search NOT (User="NT AUTHORITY\\SYSTEM" AND (ParentProcessName="*\\services.exe" OR ParentProcessName="*\\svchost.exe"))
+    | search NOT (ParentProcessName="*\\ccmexec.exe" OR ParentProcessName="*\\CcmExec.exe" OR ParentProcessName="*\\SMS*.exe")
+    | search NOT ParentProcessName="*\\wsmprovhost.exe"
+    | search NOT ParentProcessName="*\\gpscript.exe"
+    | table _time, Computer, User, ParentProcessName, CommandLine, encoded_cmd
     | sort -_time
-
+    
   condition: count > 0
 
 metadata:
