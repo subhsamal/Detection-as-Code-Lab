@@ -65,17 +65,18 @@ def verify_detection_results(service):
     (DownloadString and Mimikatz) after exclusions are applied.
     """
     # Flattened to one line to prevent Parser errors with white space/newlines
-    verification_query = r'''search index=windows sourcetype=WinEventLog:Security EventCode=4688 
-    | search (CommandLine="*powershell*" OR CommandLine="*pwsh*") 
-    | search (CommandLine="*-enc*" OR CommandLine="*-encodedcommand*") 
-    | rex field=CommandLine "-enc(?:odedcommand)?\s+(?<encoded_cmd>\S+)" 
-    | where isnotnull(encoded_cmd) AND len(encoded_cmd) >= 20 
-    | search NOT (
-        (User="NT AUTHORITY\SYSTEM" AND (ParentProcessName="*\\services.exe" OR ParentProcessName="*\\svchost.exe")) 
-        OR ParentProcessName IN ("*\\ccmexec.exe", "*\\CcmExec.exe", "*\\SMS*.exe") 
-        OR ParentProcessName="*\\wsmprovhost.exe" 
-        OR ParentProcessName="*\\gpscript.exe"
-    )'''
+    verification_query = (
+    r'index=windows sourcetype=WinEventLog:Security EventCode=4688 '
+    r'| search (CommandLine="*powershell*" OR CommandLine="*pwsh*") '
+    r'| search (CommandLine="*-enc*" OR CommandLine="*-encodedcommand*") '
+    r'| rex field=CommandLine "-enc(?:odedcommand)?\s+(?<encoded_cmd>\S+)" '
+    r'| where isnotnull(encoded_cmd) AND len(encoded_cmd) >= 20 '
+    r'| search NOT ((User="NT AUTHORITY\SYSTEM" AND '
+    r'(ParentProcessName="*\\services.exe" OR ParentProcessName="*\\svchost.exe")) '
+    r'OR ParentProcessName IN ("*\\ccmexec.exe", "*\\CcmExec.exe", "*\\SMS*.exe") '
+    r'OR ParentProcessName="*\\wsmprovhost.exe" '
+    r'OR ParentProcessName="*\\gpscript.exe")'
+)
 
     print("Running strict verification search (checking main logic + exclusions)...")
     job = service.jobs.create(verification_query, exec_mode="blocking")
