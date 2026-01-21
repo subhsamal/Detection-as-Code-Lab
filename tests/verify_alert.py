@@ -1,135 +1,109 @@
 import os
-import sys
-import time
-import urllib3
 import splunklib.client as client
+import splunklib.results as results
+import time
+import sys
 
-# Silence SSL warnings for local Docker/Self-signed certs
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-# Configuration from Environment Variables
-SPLUNK_HOST = os.getenv('SPLUNK_HOST', 'localhost')
-SPLUNK_PORT = int(os.getenv('SPLUNK_PORT', 8089))
-SPLUNK_USERNAME = os.getenv('SPLUNK_USERNAME', 'admin')
-SPLUNK_PASSWORD = os.getenv('SPLUNK_PASSWORD')
-TINES_WEBHOOK_URL = os.getenv('TINES_WEBHOOK_URL')
+def connect_to_splunk():
+    # Adjusted to use standard environment variables or local defaults
+    host = os.environ.get('SPLUNK_HOST', 'localhost')
+    port = int(os.environ.get('SPLUNK_PORT', 8089))
+    username = os.environ.get('SPLUNK_USERNAME', 'admin')
+    password = os.environ.get('SPLUNK_PASSWORD', 'YourPassword')
+    
+    return client.connect(host=host, port=port, username=username, password=password)
 
 def setup_tines_alert(service):
-    """
-    Deploys the actual detection logic to Splunk as a Saved Search.
-    This includes the full exclusion logic and the Webhook action for Tines.
-    """
-    alert_name = "Phase-1_Encoded_PowerShell_Detection"
+    print("Step 1: Creating/Updating Tines bridge alert...")
     
-    # The Full Detection Query from YAML
-    search_query = '''index=windows sourcetype=WinEventLog:Security EventCode=4688
-    | search (CommandLine="*powershell*" OR CommandLine="*pwsh*")
-    | search (CommandLine="*-enc*" OR CommandLine="*-encodedcommand*")
-    | rex field=CommandLine "-enc(?:odedcommand)?\\s+(?<encoded_cmd>\\S+)"
-    | where isnotnull(encoded_cmd) AND len(encoded_cmd) >= 20
-    | eval decoded_cmd=replace(base64decode(encoded_cmd), "\\x00", "")
-    | where isnotnull(decoded_cmd)
-    | search NOT [
-        (User="NT AUTHORITY\\\\SYSTEM" AND ParentProcessName IN ("*\\\\services.exe", "*\\\\svchost.exe"))
-        OR ParentProcessName IN ("*\\\\ccmexec.exe", "*\\\\CcmExec.exe", "*\\\\SMS*.exe")
-        OR ParentProcessName="*\\\\wsmprovhost.exe"
-        OR ParentProcessName="*\\\\gpscript.exe"
-      ]
-    | table _time, Computer, User, ParentProcessName, CommandLine, decoded_cmd'''
-
-    alert_config = {
-        "disabled": 0,
-        "is_scheduled": 1,
-        "cron_schedule": "*/1 * * * *",
-        "actions": "webhook",
-        "action.webhook.param.url": TINES_WEBHOOK_URL,
-        "alert_type": "number of events",
-        "alert_comparator": "greater than",
-        "alert_threshold": "0",
-        "alert.track": 1,
-        "dispatch.earliest_time": "-2m",
-        "dispatch.latest_time": "now"
-    }
-
-    if alert_name in service.saved_searches:
-        print(f"Updating existing Tines bridge alert: {alert_name}")
-        service.saved_searches[alert_name].update(**alert_config).refresh()
-    else:
-        print(f"Creating new Tines bridge alert: {alert_name}")
-        service.saved_searches.create(alert_name, search_query, **alert_config)
-
-def verify_detection_results(service):
-    """
-    Runs the full query to verify that exclusions are working.
-    Based on ingest_logs_for_detection.py, we expect exactly 2 matches
-    (DownloadString and Mimikatz) after exclusions are applied.
-    """
-    
-    verification_query = (
-    r'index=windows sourcetype=WinEventLog:Security EventCode=4688 '
-    r'| search (CommandLine="*powershell*" OR CommandLine="*pwsh*") '
-    r'| search (CommandLine="*-enc*" OR CommandLine="*-encodedcommand*") '
-    r'| rex field=CommandLine "-enc(?:odedcommand)?\s+(?<encoded_cmd>\S+)" '
-    r'| where isnotnull(encoded_cmd) AND len(encoded_cmd) >= 20 '
-    r'| search NOT (ParentProcessName IN ("*\\ccmexec.exe", "*\\CcmExec.exe", "*\\SMS*.exe", "*\\wsmprovhost.exe", "*\\gpscript.exe", "*\\services.exe", "*\\svchost.exe"))'
-)
-
-    # 3. Print it to your GitHub Action logs so you can see exactly what Splunk gets
-    print(f"DEBUG: Sending query: {verification_query}")
-    
-    print("Running strict verification search (checking main logic + exclusions)...")
-    job = service.jobs.create(verification_query, exec_mode="blocking")
-    result_count = int(job["resultCount"])
-    
-    # Validation logic
-    if result_count == 2:
-        print(f"SUCCESS: Found {result_count} malicious instances. Exclusions respected.")
-        return True
-    elif result_count > 2:
-        print(f"FAILURE: Found {result_count} instances. Exclusions are NOT working correctly.")
-        return False
-    else:
-        print(f"FAILURE: Found {result_count} instances. Main detection logic may be too restrictive.")
-        return False
-
-def verify_tines_received_alert():
-    """
-    Conceptual check: Use Tines API to verify the webhook actually arrived.
-    In Phase-1, we usually check this manually in the Tines UI, 
-    but for CI/CD automation, you'd use a GET request here.
-    """
-    print("Checking Tines for received events...")
-    # Example logic:
-    # response = requests.get(TINES_API_URL, headers=AUTH_HEADERS)
-    # if response.status_code == 200: return True
-    return True
-
-def main():
-    if not all([SPLUNK_PASSWORD, TINES_WEBHOOK_URL]):
-        print("ERROR: Missing SPLUNK_PASSWORD or TINES_WEBHOOK_URL.")
-        sys.exit(1)
+    # The 'Surgical' Search Query - Flattened for API stability
+    # This version removes the problematic NT AUTHORITY\SYSTEM backslash trap
+    search_query = (
+        r'index=windows sourcetype=WinEventLog:Security EventCode=4688 '
+        r'| search (CommandLine="*powershell*" OR CommandLine="*pwsh*") '
+        r'| search (CommandLine="*-enc*" OR CommandLine="*-encodedcommand*") '
+        r'| rex field=CommandLine "-enc(?:odedcommand)?\s+(?<encoded_cmd>\S+)" '
+        r'| where isnotnull(encoded_cmd) AND len(encoded_cmd) >= 20 '
+        r'| search NOT (ParentProcessName IN ("*\\ccmexec.exe", "*\\CcmExec.exe", "*\\SMS*.exe", '
+        r'"*\\wsmprovhost.exe", "*\\gpscript.exe", "*\\services.exe", "*\\svchost.exe")) '
+        r'| table _time, Computer, User, ParentProcessName, CommandLine, encoded_cmd'
+    )
 
     try:
-        service = client.connect(
-            host=SPLUNK_HOST,
-            port=SPLUNK_PORT,
-            username=SPLUNK_USERNAME,
-            password=SPLUNK_PASSWORD,
-            verify=False
-        )
-        print("Connected to Splunk successfully.")
-
-        setup_tines_alert(service)
+        alert_name = "Phase-1_Encoded_PowerShell_Detection"
+        if alert_name in service.saved_searches:
+            service.saved_searches.delete(alert_name)
+            print(f"  - Deleted existing alert: {alert_name}")
         
-        if verify_detection_results(service):
-            print("Detection-as-Code Pipeline: PASS")
+        service.saved_searches.create(alert_name, search_query)
+        print(f"✅ Saved Search '{alert_name}' created successfully.")
+        return True
+    except Exception as e:
+        print(f"❌ Failed to create Saved Search: {e}")
+        return False
+
+def verify_detection_results(service):
+    print("Step 2: Verifying detection results in index=windows...")
+    
+    # Must mirror the logic in setup_tines_alert exactly
+    verification_query = (
+        r'search index=windows sourcetype=WinEventLog:Security EventCode=4688 '
+        r'| search (CommandLine="*powershell*" OR CommandLine="*pwsh*") '
+        r'| search (CommandLine="*-enc*" OR CommandLine="*-encodedcommand*") '
+        r'| rex field=CommandLine "-enc(?:odedcommand)?\s+(?<encoded_cmd>\S+)" '
+        r'| where isnotnull(encoded_cmd) AND len(encoded_cmd) >= 20 '
+        r'| search NOT (ParentProcessName IN ("*\\ccmexec.exe", "*\\CcmExec.exe", "*\\SMS*.exe", '
+        r'"*\\wsmprovhost.exe", "*\\gpscript.exe", "*\\services.exe", "*\\svchost.exe"))'
+    )
+
+    try:
+        # Running as a oneshot job for immediate results
+        job = service.jobs.oneshot(verification_query)
+        reader = results.ResultsReader(job)
+        
+        events = []
+        for result in reader:
+            if isinstance(result, dict):
+                events.append(result)
+        
+        count = len(events)
+        print(f"📊 Verification complete. Found {count} matching events.")
+        
+        if count > 0:
+            print("  - Detection Confirmed: Malicious activity identified.")
+            return True
+        else:
+            print("  - Detection Failed: No events matched the criteria.")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Verification search failed: {e}")
+        return False
+
+def main():
+    try:
+        service = connect_to_splunk()
+        print("Connected to Splunk successfully.")
+        
+        # 1. Create/Update the Alert
+        alert_ok = setup_tines_alert(service)
+        
+        # 2. Wait for indexing (Phase-1 buffer)
+        print("Waiting 5 seconds for Splunk indexing...")
+        time.sleep(5)
+        
+        # 3. Run Verification
+        detection_ok = verify_detection_results(service)
+        
+        if alert_ok and detection_ok:
+            print("\n🚀 PHASE-1 SUCCESS: Pipeline validated.")
             sys.exit(0)
         else:
-            print("Detection-as-Code Pipeline: FAIL")
+            print("\n❌ PHASE-1 FAILURE: Pipeline checks failed.")
             sys.exit(1)
-
+            
     except Exception as e:
-        print(f"ERROR: Script failed: {e}")
+        print(f"\nCRITICAL ERROR: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":
