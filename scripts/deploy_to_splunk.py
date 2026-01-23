@@ -31,11 +31,14 @@ def connect_to_splunk():
         
         # 3. ESTABLISH THE CONNECTION
         # 'verify=False' is critical for local labs using self-signed certs.
+        # owner and app ensure we are in the correct context
         service = client.connect(
             host=SPLUNK_HOST,
             port=SPLUNK_PORT,
             username=SPLUNK_USERNAME,
             password=SPLUNK_PASSWORD,
+            owner="admin",
+            app="search",
             verify=False
         )
         
@@ -83,8 +86,7 @@ def deploy_detections(service):
             "alert_threshold": "0",
             "disabled": 0,
             "dispatch.earliest_time": "-60m@m",
-            "dispatch.latest_time": "now",
-            "check_config": "false"  # Prevents validation errors during update
+            "dispatch.latest_time": "now"
         }
         
         # 5. ADD WEBHOOK ACTION IF URL IS PROVIDED
@@ -102,10 +104,14 @@ def deploy_detections(service):
         if alert_name in service.saved_searches:
             print(f"🔄 Alert '{alert_name}' exists. Updating {webhook_status}...")
             saved_search = service.saved_searches[alert_name]
-            saved_search.update(search=search_query.strip(), **alert_params).refresh()
+            # Use update() carefully: passing 'search' as a kwarg is correct
+            saved_search.update(search=search_query.strip(), **alert_params)
+            # CRITICAL: Always call refresh() after update to sync state
+            saved_search.refresh()
             print(f"🔄 SUCCESS: Alert '{alert_name}' updated.")
         else:
             print(f"🚀 Creating new alert '{alert_name}' {webhook_status}...")
+            # When creating, you must pass the search as the second positional argument
             service.saved_searches.create(alert_name, search_query.strip(), **alert_params)
             print(f"🚀 SUCCESS: Alert '{alert_name}' created.")
         
