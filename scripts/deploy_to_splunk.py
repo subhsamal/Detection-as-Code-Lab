@@ -54,7 +54,7 @@ def deploy_detections(service):
     
     # Locate the detections directory relative to this script
     root_dir = Path(__file__).resolve().parent.parent
-    yaml_path = root_dir / "detections" / "suspicious_powershell.yml"
+    yaml_path = root_dir / "detections" / "powershell_encoded_command_execution.yml"
     
     if not yaml_path.exists():
         print(f"❌ ERROR: Detection file not found at {yaml_path}")
