@@ -39,7 +39,7 @@ jobs:
           echo "✅ Tunnel is alive. Proceeding..."
 
       - name: 1. Validate Detections
-        run: python scripts/validate_yaml_detections.py
+        run: python scripts/check_detection_schema.py
 
       - name: 2. Deploy to Splunk
         env:
@@ -54,7 +54,7 @@ jobs:
           SPLUNK_HOST: ${{ secrets.SPLUNK_HOST }}
           SPLUNK_PORT: ${{ secrets.SPLUNK_PORT }}
           SPLUNK_PASSWORD: ${{ secrets.SPLUNK_PASSWORD }}
-        run: python tests/ingest_logs_for_detection.py
+        run: python tests/attack_simulator.py
 
       # --- THE CRITICAL PHASE-1 DELAY ---
       # This gives Splunk time to index the log and hit the next 1-minute cron cycle.
@@ -70,7 +70,7 @@ jobs:
           SPLUNK_PASSWORD: ${{ secrets.SPLUNK_PASSWORD }}
           TINES_WEBHOOK_URL: ${{ secrets.TINES_WEBHOOK_URL }}
           # TINES_API_KEY: ${{ secrets.TINES_API_KEY }} # Add this if using the API check
-        run: python tests/verify_alert.py
+        run: python tests/assert_detection.py
 
       - name: 5. Cleanup Lab Environment
         if: always()
