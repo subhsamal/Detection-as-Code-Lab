@@ -5,7 +5,7 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
-  workflow_dispatch: # Allows manual triggers from the GitHub Actions tab
+  workflow_dispatch: 
 
 jobs:
   validate_and_deploy:
@@ -31,17 +31,15 @@ jobs:
           echo "Checking connectivity to Splunk at ${{ secrets.SPLUNK_HOST }}..."
           if ! curl -k -m 5 https://${{ secrets.SPLUNK_HOST }}:${{ secrets.SPLUNK_PORT }}/services/auth/login > /dev/null 2>&1; then
             echo "::error::❌ CANNOT REACH SPLUNK TUNNEL!"
-            echo "::notice::1. Ensure your Pinggy/Tunnel terminal is still running on your Mac."
-            echo "::notice::2. Verify that GitHub Secret 'SPLUNK_HOST' and 'SPLUNK_PORT' match your current tunnel URL."
-            echo "::notice::3. The current secret is set to: ${{ secrets.SPLUNK_HOST }}"
+            echo "::notice::Ensure your tunnel terminal is running and secrets match the URL."
             exit 1
           fi
           echo "✅ Tunnel is alive. Proceeding..."
 
-      - name: 1. Validate Detections
+      - name: 1. Validate Detections (Schema Check)
         run: python scripts/check_detection_schema.py
 
-      - name: 2. Deploy to Splunk
+      - name: 2. Deploy to Splunk (Push YAML to Alert)
         env:
           SPLUNK_HOST: ${{ secrets.SPLUNK_HOST }}
           SPLUNK_PORT: ${{ secrets.SPLUNK_PORT }}
@@ -49,33 +47,21 @@ jobs:
           SPLUNK_USERNAME: 'admin'
         run: python scripts/deploy_to_splunk.py
 
-      - name: 3. Ingest Logs for Detection
+      - name: 3. Ingest Attack Simulation Logs (Clean + Inject)
         env:
           SPLUNK_HOST: ${{ secrets.SPLUNK_HOST }}
           SPLUNK_PORT: ${{ secrets.SPLUNK_PORT }}
           SPLUNK_PASSWORD: ${{ secrets.SPLUNK_PASSWORD }}
         run: python tests/attack_simulator.py
 
-      # --- THE CRITICAL PHASE-1 DELAY ---
-      # This gives Splunk time to index the log and hit the next 1-minute cron cycle.
-      - name: 3.5. Waiting for Splunk Search Scheduler
+      - name: ⏳ Waiting for Splunk Search Scheduler
         run: |
-          echo "Waiting 180 seconds to ensure the cron schedule (* * * * *) triggers..."
+          echo "Waiting 180 seconds to ensure the 3-minute cron cycle triggers..."
           sleep 180
 
-      - name: 4. Verify Alert Triggered
+      - name: 4. Verify Alert & Webhook (E2E Test)
         env:
           SPLUNK_HOST: ${{ secrets.SPLUNK_HOST }}
           SPLUNK_PORT: ${{ secrets.SPLUNK_PORT }}
           SPLUNK_PASSWORD: ${{ secrets.SPLUNK_PASSWORD }}
-          TINES_WEBHOOK_URL: ${{ secrets.TINES_WEBHOOK_URL }}
-          # TINES_API_KEY: ${{ secrets.TINES_API_KEY }} # Add this if using the API check
-        run: python tests/assert_detection.py
-
-      - name: 5. Cleanup Lab Environment
-        if: always()
-        env:
-          SPLUNK_HOST: ${{ secrets.SPLUNK_HOST }}
-          SPLUNK_PORT: ${{ secrets.SPLUNK_PORT }}
-          SPLUNK_PASSWORD: ${{ secrets.SPLUNK_PASSWORD }}
-        run: python tests/cleanup_test.py
+        run: python tests/asset_detection.py
