@@ -56,6 +56,13 @@ jobs:
           SPLUNK_PASSWORD: ${{ secrets.SPLUNK_PASSWORD }}
         run: python tests/ingest_logs_for_detection.py
 
+      # --- THE CRITICAL PHASE-1 DELAY ---
+      # This gives Splunk time to index the log and hit the next 1-minute cron cycle.
+      - name: 3.5. Waiting for Splunk Search Scheduler
+        run: |
+          echo "Waiting 180 seconds to ensure the cron schedule (* * * * *) triggers..."
+          sleep 180
+
       - name: 4. Verify Alert Triggered
         env:
           SPLUNK_HOST: ${{ secrets.SPLUNK_HOST }}
