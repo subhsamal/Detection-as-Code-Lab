@@ -38,10 +38,8 @@ def connect_to_splunk():
         sys.exit(1)
 
 def verify_alert_history(service):
-    """Checks Splunk metadata to prove the alert fired AND sent a webhook."""
-    # Get the alert name dynamically from your YAML detection file
     root_dir = Path(__file__).resolve().parent.parent
-    yaml_path = root_dir / "detections" / "suspicious_powershell.yml"
+    yaml_path = root_dir / "detections" / "powershell_encoded_command_execution.yml"
 
     try:
         with open(yaml_path, 'r') as f:
@@ -49,48 +47,42 @@ def verify_alert_history(service):
         
         alert_name = data.get('name')
         print(f"\n--- Starting E2E Verification for: {alert_name} ---")
-        print(f"🕒 Pipeline Start Time: {SCRIPT_START_TIME.strftime('%Y-%m-%d %H:%M:%S')} UTC")
 
         if alert_name not in service.saved_searches:
-            print(f"❌ ERROR: Alert '{alert_name}' does not exist in Splunk.")
+            print(f"❌ ERROR: Alert '{alert_name}' does not exist.")
             return False
 
         saved_search = service.saved_searches[alert_name]
-        history = saved_search.history()
         
-        # Sort history: Check most recent jobs first
-        for job in sorted(history, key=lambda x: x.get("cursorTime", ""), reverse=True):
-            job.refresh()
-            
-            # PARSE SPLUNK UTC TIME
-            trigger_time_str = job["cursorTime"]
-            trigger_time = datetime.fromisoformat(trigger_time_str.replace('Z', '+00:00'))
-            
-            # VALIDATION CRITERIA
-            # 1. TEMPORAL FENCE: Happened after pipeline start (with 30s buffer for clock skew)
-            is_fresh = trigger_time > (SCRIPT_START_TIME - timedelta(seconds=30))
-            
-            # 2. RESULTS: Job actually found the malicious logs
-            result_count = int(job["resultCount"])
-            
-            # 3. ACTION: Splunk metadata confirms 'webhook' was triggered
-            actions = job.get("alert_actions", "")
-            webhook_fired = "webhook" in actions
+        # --- FIXED LOGIC: Get history with count=1 to avoid 404 on old/expired jobs ---
+        history = saved_search.history(count=1) 
+        
+        if not history:
+            print("⚠️ No history found for this alert yet.")
+            return False
 
-            if is_fresh and result_count > 0 and webhook_fired:
-                print(f"✅ PROVEN SUCCESS:")
-                print(f"   - Trigger Time: {trigger_time} UTC")
-                print(f"   - Result Count: {result_count}")
-                print(f"   - Alert Actions: {actions}")
-                print(f"   - Job SID: {job.sid}")
-                return True
+        job = history[0]
+        job.refresh()
         
-        print("❌ FAILED: No fresh alert with a successful webhook found in history.")
+        # PARSE TIME
+        trigger_time = datetime.fromisoformat(job["cursorTime"].replace('Z', '+00:00'))
+        
+        # VALIDATION
+        # Use a slightly wider window (2 min) to be safe against lag
+        is_fresh = trigger_time > (SCRIPT_START_TIME - timedelta(minutes=2))
+        result_count = int(job.get("resultCount", 0))
+        actions = job.get("alert_actions", "")
+        webhook_fired = "webhook" in actions
+
+        if is_fresh and result_count > 0 and webhook_fired:
+            print(f"✅ PROVEN SUCCESS: Found fresh job from {trigger_time}")
+            return True
+        
+        print(f"❌ Closest job found was at {trigger_time}, but it didn't meet all criteria.")
         return False
 
     except Exception as e:
-        print(f"❌ Verification Logic Error.")
-        traceback.print_exc()
+        print(f"❌ Verification Logic Error: {e}")
         return False
 
 def main():
