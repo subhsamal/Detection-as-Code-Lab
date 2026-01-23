@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import time
 import urllib3
 import splunklib.client as client
 from datetime import datetime
@@ -57,12 +58,23 @@ def create_test_events():
 
 def inject_test_events(service):
     test_cases = create_test_events()
+    index_name = "windows"
     
     # Ensure index exists
-    index_name = "windows"
     if index_name not in service.indexes:
         service.indexes.create(index_name)
     index = service.indexes[index_name]
+
+    # --- NEW: THE CLEANUP STEP ---
+    print(f"🧹 Cleaning old test data from index: {index_name}...")
+    try:
+        # We use a blocking oneshot search to ensure deletion finishes before we proceed
+        service.jobs.oneshot(f"search index={index_name} | delete")
+        print("✨ Index is now a clean slate.")
+        time.sleep(2) # Short pause for Splunk metadata to settle
+    except Exception as e:
+        print(f"⚠️ Cleanup note: {e} (This is normal if 'can_delete' isn't set or index is empty)")
+    # -----------------------------
 
     print(f"\n🚀 Injecting {len(test_cases)} events into Splunk index: {index_name}...")
     
