@@ -6,14 +6,12 @@ import urllib3
 from pathlib import Path
 
 # 1. SILENCE SSL WARNINGS
-# Since local Splunk uses a self-signed certificate, we tell Python to 
-# trust it for this lab. This prevents the "SSL: CERTIFICATE_VERIFY_FAILED" error.
+# Essential for self-signed certificates in local lab environments.
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # 2. RETRIEVE CONFIGURATION FROM ENVIRONMENT
-# GitHub Actions will inject your Secrets into these variables.
+# Uses variables mapped from GitHub Secrets.
 SPLUNK_HOST = os.getenv('SPLUNK_HOST', 'localhost')
-# The tunnel port changes every time; we convert the string to an integer.
 SPLUNK_PORT = int(os.getenv('SPLUNK_PORT', 8089))
 SPLUNK_USERNAME = os.getenv('SPLUNK_USERNAME', 'admin')
 SPLUNK_PASSWORD = os.getenv('SPLUNK_PASSWORD')
@@ -46,15 +44,19 @@ def connect_to_splunk():
     except Exception as e:
         print(f"❌ FAILURE: Could not connect to Splunk.")
         print(f"Error details: {e}")
-        # Exiting with 1 ensures the GitHub Action shows a RED failure icon.
         sys.exit(1)
 
 def deploy_detections(service):
     """Reads YAML detection file and creates/updates alerts in Splunk."""
     
+    # Locate the detections directory relative to this script
     root_dir = Path(__file__).resolve().parent.parent
     yaml_path = root_dir / "detections" / "suspicious_powershell.yml"
     
+    if not yaml_path.exists():
+        print(f"❌ ERROR: Detection file not found at {yaml_path}")
+        return False
+
     print(f"\n--- Reading detection: {yaml_path.name} ---")
     
     try:
@@ -72,33 +74,40 @@ def deploy_detections(service):
         print(f"Alert Name: {alert_name}")
         print(f"Schedule: {schedule}")
         
-        # 4. CONFIGURE ALERT PARAMETERS
+        # 4. CONFIGURE BASE ALERT PARAMETERS
         alert_params = {
             "is_scheduled": 1,
             "cron_schedule": schedule,
-            "actions": "webhook",
-            "action.webhook": 1,
-            "action.webhook.param.url": TINES_WEBHOOK_URL,
             "alert_type": "number of events",
             "alert_comparator": "greater than",
             "alert_threshold": "0",
             "disabled": 0,
             "dispatch.earliest_time": "-60m@m",
-            "dispatch.latest_time": "now"
+            "dispatch.latest_time": "now",
+            "check_config": "false"  # Prevents validation errors during update
         }
         
-        # 5. CHECK IF ALERT ALREADY EXISTS
-        if alert_name in service.saved_searches:
-            # UPDATE existing alert
-            print(f"🔄 Alert '{alert_name}' already exists. Updating...")
-            saved_search = service.saved_searches[alert_name]
-            saved_search.update(**alert_params)
-            print(f"🔄 SUCCESS: Alert '{alert_name}' updated successfully.")
+        # 5. ADD WEBHOOK ACTION IF URL IS PROVIDED
+        if TINES_WEBHOOK_URL:
+            alert_params["actions"] = "webhook"
+            alert_params["action.webhook"] = 1
+            alert_params["action.webhook.param.url"] = TINES_WEBHOOK_URL
+            webhook_status = "✅ with Tines webhook"
+            print(f"Webhook: Configured for {TINES_WEBHOOK_URL[:50]}...")
         else:
-            # CREATE new alert
-            print(f"🚀 Creating new alert '{alert_name}'...")
+            webhook_status = "⚠️ without webhook (TINES_WEBHOOK_URL not set)"
+            print(f"Webhook: Not configured - TINES_WEBHOOK_URL is empty")
+        
+        # 6. CREATE OR UPDATE ALERT
+        if alert_name in service.saved_searches:
+            print(f"🔄 Alert '{alert_name}' exists. Updating {webhook_status}...")
+            saved_search = service.saved_searches[alert_name]
+            saved_search.update(search=search_query.strip(), **alert_params).refresh()
+            print(f"🔄 SUCCESS: Alert '{alert_name}' updated.")
+        else:
+            print(f"🚀 Creating new alert '{alert_name}' {webhook_status}...")
             service.saved_searches.create(alert_name, search_query.strip(), **alert_params)
-            print(f"🚀 SUCCESS: Alert '{alert_name}' created successfully.")
+            print(f"🚀 SUCCESS: Alert '{alert_name}' created.")
         
         return True
     
@@ -110,14 +119,14 @@ def deploy_detections(service):
 
 def main():
     service = connect_to_splunk()
-    print(f"\nSplunk Version: {service.info['version']}")
+    print(f"Splunk Version: {service.info['version']}")
     
     success = deploy_detections(service)
     
     if not success:
         sys.exit(1)
     
-    print("\n✅ Deployment complete!")
+    print("\n✅ Phase-1 Deployment complete!")
 
 if __name__ == "__main__":
     main()

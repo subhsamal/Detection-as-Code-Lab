@@ -50,11 +50,19 @@ Detection-as-Code is a modern security engineering approach that treats threat d
   * **Enterprise Splunk Deployment:** Multi-environment setup (Dev → Prod) with proper separation of duties and approval gates for production deployments.
   * **Standardized Adversary Emulation:** Transitioning to Atomic Red Team or TTP Forge for repeatable attack simulation.
   * **Automated Quality Assurance (QA) Sandbox:** Moving to "Pre-merge" testing via Pull Requests to ensure zero-defect deployment.
-  * **Multi-Platform Lifecycle Management:** Managing exclusive detections for Splunk (SPL) and Google SecOps (YARA-L) via a unified workflow.
+  * **Cloud Threat Detection:** AWS CloudTrail, GuardDuty, and automated triage using Lambda and Terraform.
   * **Automated MITRE ATT&CK Mapping:** Automatically tagging detections with MITRE techniques for coverage visualization.
+
+---
+
+### Phase-3: Advanced Threat Intelligence & Multi-Platform Intelligence (Future)
+
+* **Focus:** "Intelligent, Enriched, and Cross-Platform Detection Ecosystem."
+* **How it scales:**
+  * **Multi-Platform Lifecycle Management:** Managing exclusive detections for Splunk (SPL) and Google SecOps (YARA-L) via a unified workflow.
   * **Intelligence-Driven Enrichment:** Integrating GTI (Global Threat Intelligence) and external APIs to enrich live alerts with reputation data.
   * **Agentic AI Orchestration:** Integrating AI Agents into Tines to perform "First-Level Analysis" and explain threat intent to analysts.
-
+  * **EDR Integration:** Endpoint Detection and Response (EDR) platform integration for host-based threat visibility and automated response actions.
 ---
 
 ## 3. Environment & Workspace Setup
