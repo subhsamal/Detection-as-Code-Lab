@@ -45,8 +45,9 @@ Detection-as-Code is a modern security engineering approach that treats threat d
 
 ### Phase-2: Scaling to Industry Standards (Upcoming)
 
-* **Focus:** Transitioning from "Functional" to "Resilient, Intelligent, and Scalable."
+* **Focus:** Transitioning from "Functional" to "Resilient, and Scalable."
 * **How it scales:**
+  * **Enterprise Splunk Deployment:** Multi-environment setup (Dev → Prod) with proper separation of duties and approval gates for production deployments.
   * **Standardized Adversary Emulation:** Transitioning to Atomic Red Team or TTP Forge for repeatable attack simulation.
   * **Automated Quality Assurance (QA) Sandbox:** Moving to "Pre-merge" testing via Pull Requests to ensure zero-defect deployment.
   * **Multi-Platform Lifecycle Management:** Managing exclusive detections for Splunk (SPL) and Google SecOps (YARA-L) via a unified workflow.

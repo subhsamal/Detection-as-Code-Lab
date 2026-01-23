@@ -1,25 +1,38 @@
 import os
 import sys
 import yaml
-import urllib3
 import splunklib.client as client
+import urllib3
 from pathlib import Path
 
 # 1. SILENCE SSL WARNINGS
+# Since local Splunk uses a self-signed certificate, we tell Python to 
+# trust it for this lab. This prevents the "SSL: CERTIFICATE_VERIFY_FAILED" error.
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# 2. CONFIGURATION
+# 2. RETRIEVE CONFIGURATION FROM ENVIRONMENT
+# GitHub Actions will inject your Secrets into these variables.
 SPLUNK_HOST = os.getenv('SPLUNK_HOST', 'localhost')
+# The tunnel port changes every time; we convert the string to an integer.
 SPLUNK_PORT = int(os.getenv('SPLUNK_PORT', 8089))
 SPLUNK_USERNAME = os.getenv('SPLUNK_USERNAME', 'admin')
 SPLUNK_PASSWORD = os.getenv('SPLUNK_PASSWORD')
-TINES_WEBHOOK_URL = os.getenv('TINES_WEBHOOK_URL')
+TINES_WEBHOOK_URL = (os.getenv('TINES_WEBHOOK_URL') or "").strip()
+
+# Safety Check: Stop the script if secrets are missing
+if not SPLUNK_PASSWORD:
+    print("❌ ERROR: SPLUNK_PASSWORD environment variable not set.")
+    sys.exit(1)
 
 def connect_to_splunk():
-    if not SPLUNK_PASSWORD:
-        print("❌ ERROR: SPLUNK_PASSWORD environment variable not set.")
-        sys.exit(1)
+    """Establishes a connection to the Splunk Management API."""
     try:
+        print(f"--- Attempting to connect to Splunk ---")
+        print(f"Host: {SPLUNK_HOST}")
+        print(f"Port: {SPLUNK_PORT}")
+        
+        # 3. ESTABLISH THE CONNECTION
+        # 'verify=False' is critical for local labs using self-signed certs.
         service = client.connect(
             host=SPLUNK_HOST,
             port=SPLUNK_PORT,
@@ -27,19 +40,22 @@ def connect_to_splunk():
             password=SPLUNK_PASSWORD,
             verify=False
         )
-        print(f"✅ Connected to Splunk at {SPLUNK_HOST}:{SPLUNK_PORT}")
+        
+        print("✅ SUCCESS: Connected to Splunk successfully.")
         return service
     except Exception as e:
-        print(f"❌ FAILURE: Could not connect to Splunk: {e}")
+        print(f"❌ FAILURE: Could not connect to Splunk.")
+        print(f"Error details: {e}")
+        # Exiting with 1 ensures the GitHub Action shows a RED failure icon.
         sys.exit(1)
 
 def deploy_detections(service):
-    """Parses YAML and deploys the Alert with Tines Automation."""
-    # Path logic: finds detections/ relative to this script
+    """Reads YAML detection file and creates/updates alerts in Splunk."""
+    
     root_dir = Path(__file__).resolve().parent.parent
     yaml_path = root_dir / "detections" / "suspicious_powershell.yml"
-
-    print(f"--- Reading detection: {yaml_path.name} ---")
+    
+    print(f"\n--- Reading detection: {yaml_path.name} ---")
     
     try:
         with open(yaml_path, 'r') as f:
@@ -47,43 +63,61 @@ def deploy_detections(service):
         
         alert_name = data.get('name')
         search_query = data.get('detection', {}).get('search')
-
+        schedule = data.get('schedule', "* * * * *")
+        
         if not alert_name or not search_query:
-            print(f"❌ YAML Error: Missing name or search in {yaml_path}")
+            print(f"❌ YAML Error: Missing 'name' or 'detection.search' in {yaml_path}")
             return False
-
-        # --- CONFIGURE ALERT PARAMETERS ---
+        
+        print(f"Alert Name: {alert_name}")
+        print(f"Schedule: {schedule}")
+        
+        # 4. CONFIGURE ALERT PARAMETERS
         alert_params = {
             "is_scheduled": 1,
-            "cron_schedule": data.get('schedule', "*/5 * * * *"),
+            "cron_schedule": schedule,
             "actions": "webhook",
             "action.webhook": 1,
             "action.webhook.param.url": TINES_WEBHOOK_URL,
             "alert_type": "number of events",
             "alert_comparator": "greater than",
             "alert_threshold": "0",
-            "disabled": 0
+            "disabled": 0,
+            "dispatch.earliest_time": "-60m@m",
+            "dispatch.latest_time": "now"
         }
-
-        # Lifecycle Management: Clean up old versions
+        
+        # 5. CHECK IF ALERT ALREADY EXISTS
         if alert_name in service.saved_searches:
-            service.saved_searches.delete(alert_name)
-            print(f"  - Cleaned up existing version of '{alert_name}'")
-
-        # Deploy fresh Alert
-        service.saved_searches.create(alert_name, search_query.strip(), **alert_params)
-        print(f"🚀 SUCCESS: '{alert_name}' deployed and linked to Tines.")
+            # UPDATE existing alert
+            print(f"🔄 Alert '{alert_name}' already exists. Updating...")
+            saved_search = service.saved_searches[alert_name]
+            saved_search.update(**alert_params)
+            print(f"🔄 SUCCESS: Alert '{alert_name}' updated successfully.")
+        else:
+            # CREATE new alert
+            print(f"🚀 Creating new alert '{alert_name}'...")
+            service.saved_searches.create(alert_name, search_query.strip(), **alert_params)
+            print(f"🚀 SUCCESS: Alert '{alert_name}' created successfully.")
+        
         return True
-
+    
     except Exception as e:
         print(f"❌ Deployment failed: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 def main():
     service = connect_to_splunk()
+    print(f"\nSplunk Version: {service.info['version']}")
+    
     success = deploy_detections(service)
+    
     if not success:
         sys.exit(1)
+    
+    print("\n✅ Deployment complete!")
 
 if __name__ == "__main__":
     main()
