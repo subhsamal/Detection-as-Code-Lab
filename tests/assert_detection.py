@@ -49,7 +49,7 @@ def verify_alert_history(service):
         print(f"\n--- Starting E2E Verification for: {alert_name} ---")
 
         # Access the FIRED ALERTS collection (requires 'track: enabled: true' in YAML)
-        fired_alerts = service.fired_alerts()
+        fired_alerts = service.fired_alerts
         
         if alert_name not in fired_alerts:
             print(f"⚠️ No record of '{alert_name}' having ever fired in the 'Triggered Alerts' list.")
@@ -60,7 +60,7 @@ def verify_alert_history(service):
         
         # Look back 5 minutes from 'now' to see if a record exists
         # This is persistent and does NOT rely on temporary search jobs (No more 404s!)
-        recent_fires = alert_group.alerts(earliest_time="-5m")
+        recent_fires = alert_group.list(earliest_time="-5m")
         
         if not recent_fires:
             print(f"❌ Alert exists, but no trigger events found in the last 5 minutes.")

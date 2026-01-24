@@ -56,8 +56,8 @@ jobs:
 
       - name: ⏳ Waiting for Splunk Search Scheduler
         run: |
-          echo "Waiting 180 seconds to ensure the 3-minute cron cycle triggers..."
-          sleep 180
+          echo "Waiting 110 seconds to ensure the 3-minute cron cycle triggers..."
+          sleep 110
 
       - name: 4. Verify Alert & Webhook (E2E Test)
         env:
