@@ -10,15 +10,15 @@ version: 2.0
 schedule: "* * * * *"
 
 # --- ALERT ACTIONS & CONTROLS ---
-# Throttling is enabled to prevent alert fatigue and ensure our CI/CD pipeline 
-# only processes one event per run, even if the cron schedule overlaps.
 alert_actions:
+  track:
+    enabled: true 
   webhook:
     enabled: true
   suppress:
     enabled: true
     period: "5m"
-    fields: "CommandLine"  # Only suppress if the SAME command is seen again
+    fields: "CommandLine, User"
 
 detection:
   product: windows
