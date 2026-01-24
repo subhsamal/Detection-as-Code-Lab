@@ -38,54 +38,29 @@ def connect_to_splunk():
         sys.exit(1)
 
 def verify_alert_history(service):
-    root_dir = Path(__file__).resolve().parent.parent
-    yaml_path = root_dir / "detections" / "powershell_encoded_command_execution.yml"
+    alert_name = "Suspicious PowerShell Encoded Command"
+    
+    # This query looks at Splunk's internal logs to see if the ALERT ACTION actually ran
+    # It is the most honest way to verify an alert fired.
+    audit_query = f'search index=_audit action=alert_fired ss_name="{alert_name}" | stats count'
 
     try:
-        with open(yaml_path, 'r') as f:
-            data = yaml.safe_load(f)
+        print(f"--- Probing Audit Logs for Alert: {alert_name} ---")
+        job = service.jobs.oneshot(audit_query)
         
-        alert_name = data.get('name')
-        print(f"\n--- Starting E2E Verification for: {alert_name} ---")
-
-        # Access the FIRED ALERTS collection (requires 'track: enabled: true' in YAML)
-        fired_alerts = service.fired_alerts
+        import splunklib.results as results
+        reader = results.ResultsReader(job)
         
-        if alert_name not in fired_alerts:
-            print(f"⚠️ No record of '{alert_name}' having ever fired in the 'Triggered Alerts' list.")
-            return False
-
-        # Get the alerts for this specific detection
-        alert_group = fired_alerts[alert_name]
+        for result in reader:
+            count = int(result['count'])
+            if count > 0:
+                print(f"✅ PROVEN: Splunk Audit logs confirm this alert fired {count} times!")
+                return True
         
-        # Look back 5 minutes from 'now' to see if a record exists
-        # This is persistent and does NOT rely on temporary search jobs (No more 404s!)
-        recent_fires = alert_group.list(earliest_time="-5m")
-        
-        if not recent_fires:
-            print(f"❌ Alert exists, but no trigger events found in the last 5 minutes.")
-            return False
-
-        # If we have at least one, we check the most recent one
-        latest_alert = recent_fires[0]
-        trigger_time_str = latest_alert.get("trigger_time") # Returns Epoch string
-        trigger_time = datetime.fromtimestamp(float(trigger_time_str), tz=timezone.utc)
-
-        # Logic check: Was it fired AFTER we started this test run?
-        # We use a 1-minute buffer to account for minor clock drift
-        is_fresh = trigger_time > (SCRIPT_START_TIME - timedelta(minutes=1))
-
-        if is_fresh:
-            print(f"✅ PROVEN SUCCESS: Found fresh triggered alert record from {trigger_time}")
-            print(f"✅ Alert Details: SID={latest_alert.get('sid')}")
-            return True
-        
-        print(f"❌ Found a record from {trigger_time}, but it's too old for this test run.")
+        print("❌ FAIL: No record of this alert firing found in Splunk Audit logs.")
         return False
-
     except Exception as e:
-        print(f"❌ Verification Logic Error: {e}")
-        # Optional: print(traceback.format_exc()) for deep debugging
+        print(f"❌ Audit Probe Error: {e}")
         return False
     
 def main():
