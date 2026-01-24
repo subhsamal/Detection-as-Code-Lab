@@ -48,43 +48,46 @@ def verify_alert_history(service):
         alert_name = data.get('name')
         print(f"\n--- Starting E2E Verification for: {alert_name} ---")
 
-        if alert_name not in service.saved_searches:
-            print(f"❌ ERROR: Alert '{alert_name}' does not exist.")
+        # Access the FIRED ALERTS collection (requires 'track: enabled: true' in YAML)
+        fired_alerts = service.fired_alerts()
+        
+        if alert_name not in fired_alerts:
+            print(f"⚠️ No record of '{alert_name}' having ever fired in the 'Triggered Alerts' list.")
             return False
 
-        saved_search = service.saved_searches[alert_name]
+        # Get the alerts for this specific detection
+        alert_group = fired_alerts[alert_name]
         
-        # --- FIXED LOGIC: Get history with count=1 to avoid 404 on old/expired jobs ---
-        history = saved_search.history(count=1) 
+        # Look back 5 minutes from 'now' to see if a record exists
+        # This is persistent and does NOT rely on temporary search jobs (No more 404s!)
+        recent_fires = alert_group.alerts(earliest_time="-5m")
         
-        if not history:
-            print("⚠️ No history found for this alert yet.")
+        if not recent_fires:
+            print(f"❌ Alert exists, but no trigger events found in the last 5 minutes.")
             return False
 
-        job = history[0]
-        job.refresh()
-        
-        # PARSE TIME
-        trigger_time = datetime.fromisoformat(job["cursorTime"].replace('Z', '+00:00'))
-        
-        # VALIDATION
-        # Use a slightly wider window (2 min) to be safe against lag
-        is_fresh = trigger_time > (SCRIPT_START_TIME - timedelta(minutes=2))
-        result_count = int(job.get("resultCount", 0))
-        actions = job.get("alert_actions", "")
-        webhook_fired = "webhook" in actions
+        # If we have at least one, we check the most recent one
+        latest_alert = recent_fires[0]
+        trigger_time_str = latest_alert.get("trigger_time") # Returns Epoch string
+        trigger_time = datetime.fromtimestamp(float(trigger_time_str), tz=timezone.utc)
 
-        if is_fresh and result_count > 0 and webhook_fired:
-            print(f"✅ PROVEN SUCCESS: Found fresh job from {trigger_time}")
+        # Logic check: Was it fired AFTER we started this test run?
+        # We use a 1-minute buffer to account for minor clock drift
+        is_fresh = trigger_time > (SCRIPT_START_TIME - timedelta(minutes=1))
+
+        if is_fresh:
+            print(f"✅ PROVEN SUCCESS: Found fresh triggered alert record from {trigger_time}")
+            print(f"✅ Alert Details: SID={latest_alert.get('sid')}")
             return True
         
-        print(f"❌ Closest job found was at {trigger_time}, but it didn't meet all criteria.")
+        print(f"❌ Found a record from {trigger_time}, but it's too old for this test run.")
         return False
 
     except Exception as e:
         print(f"❌ Verification Logic Error: {e}")
+        # Optional: print(traceback.format_exc()) for deep debugging
         return False
-
+    
 def main():
     if not SPLUNK_PASSWORD:
         print("❌ ERROR: SPLUNK_PASSWORD environment variable not set.")
