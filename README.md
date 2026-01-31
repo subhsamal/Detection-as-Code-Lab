@@ -369,3 +369,5 @@ Maintains long-term access through automated callback mechanism.
 - Web proxy URL blocking
 
 By validating and decoding the Base64 content, this detection sees through the obfuscation layer and identifies malicious patterns that would otherwise remain hidden.
+
+[This change is for recording DAC]
