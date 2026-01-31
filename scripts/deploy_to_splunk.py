@@ -68,7 +68,7 @@ def deploy_detections(service):
         
         alert_name = data.get('name')
         search_query = data.get('detection', {}).get('search')
-        schedule = data.get('schedule', "* * * * *")
+        schedule = data.get('schedule', "*/2 * * * *")
         
         if not alert_name or not search_query:
             print(f"❌ YAML Error: Missing 'name' or 'detection.search' in {yaml_path}")
