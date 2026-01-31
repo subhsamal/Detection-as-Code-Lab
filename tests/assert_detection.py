@@ -82,6 +82,8 @@ def verify_alert_history(service):
         audit_job = service.jobs.oneshot(audit_query, output_mode="json", earliest_time="-10m")
         audit_results = json.loads(audit_job.read())
 
+        print(f"🕒 Audit record found from Splunk execution at: {audit_results['results'][0]['_time']}")
+
         if not audit_results.get("results"):
             print(f"❌ FAIL: No audit record found for '{alert_name}' in the last 10 minutes.")
             return False

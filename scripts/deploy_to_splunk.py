@@ -80,13 +80,20 @@ def deploy_detections(service):
         # 4. CONFIGURE BASE ALERT PARAMETERS
         alert_params = {
             "is_scheduled": 1,
-            "cron_schedule": schedule,
+            "cron_schedule": schedule,        # Every 1 minute (* * * * *)
             "alert_type": "number of events",
             "alert_comparator": "greater than",
             "alert_threshold": "0",
             "disabled": 0,
-            "dispatch.earliest_time": "-60m@m",
-            "dispatch.latest_time": "now"
+            
+            # CHANGE THESE TWO LINES:
+            "dispatch.earliest_time": "-2m@m", # Look back 2 mins to catch ingestion lag
+            "dispatch.latest_time": "-1m@m",   # Stop at the start of the current minute
+            
+            # ADD THROTTLING (To prevent duplicate Slack pings)
+            "alert.suppress": 1,
+            "alert.suppress.period": "5m",
+            "alert.suppress.fields": "CommandLine,Computer" 
         }
         
         # 5. ADD WEBHOOK ACTION IF URL IS PROVIDED
