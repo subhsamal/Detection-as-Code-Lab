@@ -75,20 +75,23 @@ def inject_test_events(service):
     except Exception as e:
         print(f"⚠️ Cleanup note: {e} (This is normal if 'can_delete' isn't set or index is empty)")
 
-    # --- THE NEW DATA INJECTION STEP ---
+        # --- THE NEW DATA INJECTION STEP ---
     print(f"\n🚀 Injecting {len(test_cases)} events into Splunk index: {index_name}...")
-    unified_time = time.time() # Forces "Now" to close the 21-minute gap
 
     for tc in test_cases:
         event_json = json.dumps(tc["event"])
-        timestamped_event = f"{int(unified_time)} {event_json}"
-        # Submit without the 'time' keyword to avoid the TypeError
+        
+        # Current time
+        readable_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S') #
+        timestamped_event = f"{readable_time} {event_json}" #
+        
+        # Submit using the new timestamped_event string
         index.submit(
             timestamped_event, 
             sourcetype="WinEventLog:Security", 
             source="dac_test_suite"
-        )
-    
+        ) #
+
         status = "✅ [EXPECT ALERT]" if tc["should_alert"] else "⚪ [BENIGN]"
         print(f"{status} {tc['description']}")
 

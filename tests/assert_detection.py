@@ -47,15 +47,17 @@ def verify_alert_history(service):
     # STEP 1: Verify raw logs exist
     print(f"--- Step 1: Verifying Raw Logs ---")
     raw_query = (
-        'search index=windows sourcetype=WinEventLog:Security EventCode=4688 '
+        'search index=windows sourcetype=WinEventLog:Security source=dac_test_suite '
+        '| spath '  # To fix the field extraction issue
+        '| search EventCode=4688 '
         '(CommandLine="*powershell*" OR CommandLine="*pwsh*") '
         '(CommandLine="*-enc*" OR CommandLine="*-encodedcommand*") '
         '| rex field=CommandLine "-enc(?:odedcommand)?\\s+(?<encoded_cmd>\\S+)" '
         '| where isnotnull(encoded_cmd) AND len(encoded_cmd) >= 20 '
-        '| search NOT (User="NT AUTHORITY\\\\SYSTEM" AND (ParentProcessName="*\\\\services.exe" OR ParentProcessName="*\\\\svchost.exe")) '
-        '| search NOT (ParentProcessName="*\\\\ccmexec.exe" OR ParentProcessName="*\\\\CcmExec.exe" OR ParentProcessName="*\\\\SMS*.exe") '
-        '| search NOT ParentProcessName="*\\\\wsmprovhost.exe" '
-        '| search NOT ParentProcessName="*\\\\gpscript.exe"'
+        '| search NOT (User="NT AUTHORITY\\\\SYSTEM" AND (ParentProcessName="*\\\\services.exe" OR ParentProcessName="*\\\\svchost.exe")) ' # KEEP
+        '| search NOT (ParentProcessName="*\\\\ccmexec.exe" OR ParentProcessName="*\\\\CcmExec.exe" OR ParentProcessName="*\\\\SMS*.exe") '   # KEEP
+        '| search NOT ParentProcessName="*\\\\wsmprovhost.exe" '                                                                             # KEEP
+        '| search NOT ParentProcessName="*\\\\gpscript.exe"'                                                                                # KEEP
     )
 
     try:
@@ -106,9 +108,8 @@ def verify_alert_history(service):
     # STEP 3: IMPORTANT - Check if alerts were actually TRIGGERED
     print(f"\n--- Step 3: Verifying Triggered Alerts (THE REAL TEST) ---")
     
-    # This searches the triggered alerts summary index
     triggered_query = (
-        f'search index=_audit action=alert_fired '
+        f'search index=_audit action=alert_fired'
         f'savedsearch_name="{alert_name}" '
         f'| stats count'
     )
