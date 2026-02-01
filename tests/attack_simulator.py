@@ -92,7 +92,7 @@ def inject_test_events(service):
         status = "✅ [EXPECT ALERT]" if tc["should_alert"] else "⚪ [BENIGN]"
         print(f"{status} {tc['description']}")
 
-    time.sleep(120)
+    time.sleep(10)
 
 def main():
     if not SPLUNK_PASSWORD:

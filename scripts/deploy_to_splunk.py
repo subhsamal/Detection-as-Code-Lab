@@ -6,11 +6,9 @@ import urllib3
 from pathlib import Path
 
 # 1. SILENCE SSL WARNINGS
-# Essential for self-signed certificates in local lab environments.
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # 2. RETRIEVE CONFIGURATION FROM ENVIRONMENT
-# Uses variables mapped from GitHub Secrets.
 SPLUNK_HOST = os.getenv('SPLUNK_HOST', 'localhost')
 SPLUNK_PORT = int(os.getenv('SPLUNK_PORT', 8089))
 SPLUNK_USERNAME = os.getenv('SPLUNK_USERNAME', 'admin')
@@ -29,9 +27,6 @@ def connect_to_splunk():
         print(f"Host: {SPLUNK_HOST}")
         print(f"Port: {SPLUNK_PORT}")
         
-        # 3. ESTABLISH THE CONNECTION
-        # 'verify=False' is critical for local labs using self-signed certs.
-        # owner and app ensure we are in the correct context
         service = client.connect(
             host=SPLUNK_HOST,
             port=SPLUNK_PORT,
@@ -52,7 +47,6 @@ def connect_to_splunk():
 def deploy_detections(service):
     """Reads YAML detection file and creates/updates alerts in Splunk."""
     
-    # Locate the detections directory relative to this script
     root_dir = Path(__file__).resolve().parent.parent
     yaml_path = root_dir / "detections" / "powershell_encoded_command_execution.yml"
     
@@ -85,18 +79,22 @@ def deploy_detections(service):
             "alert_comparator": "greater than",
             "alert_threshold": "0",
             "disabled": 0,
-            "dispatch.earliest_time": "-10m@m", # search window for alert
-            # "dispatch.latest_time": "-1m@m",   # Stop at the start of the current minute
-            "dispatch.digest_mode": "0", #Forces Splunk to treat every row as a separate alert
-            "alert.track":"1", # Enable Triggered Alerts
             
-            # ADD THROTTLING (To prevent duplicate Slack pings)
+            # ⚠️ FIX: Use relative time without snap-to (@m)
+            # This ensures we catch events that just happened
+            "dispatch.earliest_time": "-15m",
+            "dispatch.latest_time": "now",
+            
+            "dispatch.digest_mode": "0", #Forces Splunk to treat every row as a separate alert
+            "alert.track": "1", #Enables triggered alert
+            
+            # ADD THROTTLING
             "alert.suppress": 1,
-            "alert.suppress.period": "10m",
+            "alert.suppress.period": "5m",  # Reduced from 10m to 5m
             "alert.suppress.fields": "Computer, User"
         }
         
-        # 5. ADD WEBHOOK ACTION IF URL IS PROVIDED
+        # 5. ADD WEBHOOK ACTION FOR TINES
         if TINES_WEBHOOK_URL:
             alert_params["actions"] = "webhook"
             alert_params["action.webhook"] = 1
@@ -111,14 +109,11 @@ def deploy_detections(service):
         if alert_name in service.saved_searches:
             print(f"🔄 Alert '{alert_name}' exists. Updating {webhook_status}...")
             saved_search = service.saved_searches[alert_name]
-            # Use update() carefully: passing 'search' as a kwarg is correct
             saved_search.update(search=search_query.strip(), **alert_params)
-            # CRITICAL: Always call refresh() after update to sync state
             saved_search.refresh()
             print(f"🔄 SUCCESS: Alert '{alert_name}' updated.")
         else:
             print(f"🚀 Creating new alert '{alert_name}' {webhook_status}...")
-            # When creating, you must pass the search as the second positional argument
             service.saved_searches.create(alert_name, search_query.strip(), **alert_params)
             print(f"🚀 SUCCESS: Alert '{alert_name}' created.")
         
