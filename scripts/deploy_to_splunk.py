@@ -87,8 +87,8 @@ def deploy_detections(service):
             "disabled": 0,
             
             # CHANGE THESE TWO LINES:
-            "dispatch.earliest_time": "-2m@m", # Look back 2 mins to catch ingestion lag
-            "dispatch.latest_time": "-1m@m",   # Stop at the start of the current minute
+            "dispatch.earliest_time": "-3m@m", # Look back 2 mins to catch ingestion lag
+            # "dispatch.latest_time": "-1m@m",   # Stop at the start of the current minute
             
             # ADD THROTTLING (To prevent duplicate Slack pings)
             "alert.suppress": 1,
