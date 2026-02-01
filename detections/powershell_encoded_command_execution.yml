@@ -25,7 +25,9 @@ detection:
   category: process_creation
   
   search: |
-    index=windows sourcetype=WinEventLog:Security EventCode=4688
+    index=windows sourcetype=WinEventLog:Security 
+    | spath
+    | search EventCode=4688
     (CommandLine="*powershell*" OR CommandLine="*pwsh*")
     (CommandLine="*-enc*" OR CommandLine="*-encodedcommand*")
     | rex field=CommandLine "-enc(?:odedcommand)?\s+(?<encoded_cmd>\S+)"
