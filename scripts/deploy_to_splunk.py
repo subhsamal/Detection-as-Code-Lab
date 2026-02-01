@@ -80,17 +80,15 @@ def deploy_detections(service):
             "alert_threshold": "0",
             "disabled": 0,
             
-            # ⚠️ FIX: Use relative time without snap-to (@m)
-            # This ensures we catch events that just happened
+            # Use relative time without snap-to (@m)
             "dispatch.earliest_time": "-15m",
             "dispatch.latest_time": "now",
-            
             "dispatch.digest_mode": "0", #Forces Splunk to treat every row as a separate alert
             "alert.track": "1", #Enables triggered alert
             
             # ADD THROTTLING
             "alert.suppress": 1,
-            "alert.suppress.period": "5m",  # Reduced from 10m to 5m
+            "alert.suppress.period": "2m",  # Reduced from 10m to 5m
             "alert.suppress.fields": "Computer, User"
         }
         

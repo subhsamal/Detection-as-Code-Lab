@@ -18,26 +18,25 @@ alert_actions:
   suppress:
     enabled: true
     period: "5m"
-    fields: "CommandLine, User"
+    fields: "Computer, User"
 
 detection:
   product: windows
   category: process_creation
   
   search: |
-    index=windows sourcetype=WinEventLog:Security 
+    index=windows sourcetype="WinEventLog:Security" 
     | spath
-    | search EventCode=4688
-    (CommandLine="*powershell*" OR CommandLine="*pwsh*")
-    (CommandLine="*-enc*" OR CommandLine="*-encodedcommand*")
-    | rex field=CommandLine "-enc(?:odedcommand)?\s+(?<encoded_cmd>\S+)"
-    | where isnotnull(encoded_cmd) AND len(encoded_cmd) >= 20
-    | search NOT (User="NT AUTHORITY\\SYSTEM" AND (ParentProcessName="*\\services.exe" OR ParentProcessName="*\\svchost.exe"))
-    | search NOT (ParentProcessName="*\\ccmexec.exe" OR ParentProcessName="*\\CcmExec.exe" OR ParentProcessName="*\\SMS*.exe")
-    | search NOT ParentProcessName="*\\wsmprovhost.exe"
+    | search EventCode=4688 
+    (CommandLine="*powershell*" OR CommandLine="*pwsh*") 
+    (CommandLine="*-enc*" OR CommandLine="*-encodedcommand*") 
+    | rex field=CommandLine "-enc(?:odedcommand)?\s+(?<encoded_cmd>\S+)" 
+    | where isnotnull(encoded_cmd) AND len(encoded_cmd) >= 20 
+    | search NOT (User="NT AUTHORITY\\SYSTEM" AND (ParentProcessName="*\\services.exe" OR ParentProcessName="*\\svchost.exe")) 
+    | search NOT (ParentProcessName="*\\ccmexec.exe" OR ParentProcessName="*\\CcmExec.exe" OR ParentProcessName="*\\SMS*.exe") 
+    | search NOT ParentProcessName="*\\wsmprovhost.exe" 
     | search NOT ParentProcessName="*\\gpscript.exe"
     | table _time, Computer, User, ParentProcessName, CommandLine, encoded_cmd
-    | sort -_time
 
   condition: count > 0
 
