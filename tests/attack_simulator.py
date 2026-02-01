@@ -8,6 +8,8 @@ from datetime import datetime
 
 # SILENCE SSL WARNINGS
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+# Use the current time so the -2m or -5m search window catches it
+unified_time = time.time()
 
 # CONFIGURATION
 SPLUNK_HOST = os.getenv('SPLUNK_HOST', 'localhost')
@@ -80,10 +82,10 @@ def inject_test_events(service):
     
     for tc in test_cases:
         event_json = json.dumps(tc["event"])
-        index.submit(event_json, sourcetype="WinEventLog:Security", source="dac_test_suite")
+        index.submit(event_json, sourcetype="WinEventLog:Security", source="dac_test_suite", time=unified_time)
         status = "✅ [ALERT EXPECTED]" if tc["should_alert"] else "⚪ [BENIGN/IGNORE]"
         print(f"{status} {tc['description']}")
-    
+
     time.sleep(120)
 
 def main():

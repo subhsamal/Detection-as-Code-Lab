@@ -80,20 +80,20 @@ def deploy_detections(service):
         # 4. CONFIGURE BASE ALERT PARAMETERS
         alert_params = {
             "is_scheduled": 1,
-            "cron_schedule": schedule,        # Every 1 minute (* * * * *)
+            "cron_schedule": schedule,
             "alert_type": "number of events",
             "alert_comparator": "greater than",
             "alert_threshold": "0",
             "disabled": 0,
-            
-            # CHANGE THESE TWO LINES:
-            "dispatch.earliest_time": "-3m@m", # Look back 2 mins to catch ingestion lag
+            "dispatch.earliest_time": "-5m@m", # search window for alert
             # "dispatch.latest_time": "-1m@m",   # Stop at the start of the current minute
+            "dispatch.digest_mode": "0", #Forces Splunk to treat every row as a separate alert
+            "alert.track":"1", # Enable Triggered Alerts
             
             # ADD THROTTLING (To prevent duplicate Slack pings)
             "alert.suppress": 1,
             "alert.suppress.period": "5m",
-            "alert.suppress.fields": "CommandLine,Computer" 
+            "alert.suppress.fields": "Computer, User"
         }
         
         # 5. ADD WEBHOOK ACTION IF URL IS PROVIDED
