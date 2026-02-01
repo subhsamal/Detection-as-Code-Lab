@@ -65,7 +65,7 @@ def inject_test_events(service):
         service.indexes.create(index_name)
     index = service.indexes[index_name]
 
-    # --- NEW: THE OLD DATA CLEANUP STEP ---
+    # --- THE OLD DATA CLEANUP STEP ---
     print(f"🧹 Cleaning old test data from index: {index_name}...")
     try:
         # We use a blocking oneshot search to ensure deletion finishes before we proceed
@@ -74,20 +74,23 @@ def inject_test_events(service):
         time.sleep(2) # Short pause for Splunk metadata to settle
     except Exception as e:
         print(f"⚠️ Cleanup note: {e} (This is normal if 'can_delete' isn't set or index is empty)")
-    # -----------------------------
 
+    # --- THE NEW DATA INJECTION STEP ---
     print(f"\n🚀 Injecting {len(test_cases)} events into Splunk index: {index_name}...")
-    
     unified_time = time.time() # Forces "Now" to close the 21-minute gap
 
     for tc in test_cases:
         event_json = json.dumps(tc["event"])
-        kwargs = {
-            "sourcetype": "WinEventLog:Security",
-            "source": "dac_test_suite",
-            "time": str(unified_time) # The **kwargs approach fixes the TypeError
-        }
-        index.submit(event_json, **kwargs)
+        timestamped_event = f"{int(unified_time)} {event_json}"
+        # Submit without the 'time' keyword to avoid the TypeError
+        index.submit(
+            timestamped_event, 
+            sourcetype="WinEventLog:Security", 
+            source="dac_test_suite"
+        )
+    
+        status = "✅ [EXPECT ALERT]" if tc["should_alert"] else "⚪ [BENIGN]"
+        print(f"{status} {tc['description']}")
 
     time.sleep(120)
 
