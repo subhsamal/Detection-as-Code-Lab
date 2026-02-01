@@ -56,7 +56,7 @@ def verify_alert_history(service):
 
     try:
         print(f"\n--- Step 1: Checking Raw Logs (Expectation: {EXPECTED_MATCHES}) ---")
-        job = service.jobs.oneshot(raw_query, output_mode="json", earliest_time="-10m")
+        job = service.jobs.oneshot(raw_query, output_mode="json", earliest_time="-5m")
         
         import json
         results = json.loads(job.read())

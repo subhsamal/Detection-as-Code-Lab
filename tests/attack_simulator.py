@@ -65,7 +65,7 @@ def inject_test_events(service):
         service.indexes.create(index_name)
     index = service.indexes[index_name]
 
-    # --- NEW: THE CLEANUP STEP ---
+    # --- NEW: THE OLD DATA CLEANUP STEP ---
     print(f"🧹 Cleaning old test data from index: {index_name}...")
     try:
         # We use a blocking oneshot search to ensure deletion finishes before we proceed
@@ -83,6 +83,8 @@ def inject_test_events(service):
         index.submit(event_json, sourcetype="WinEventLog:Security", source="dac_test_suite")
         status = "✅ [ALERT EXPECTED]" if tc["should_alert"] else "⚪ [BENIGN/IGNORE]"
         print(f"{status} {tc['description']}")
+    
+    time.sleep(120)
 
 def main():
     if not SPLUNK_PASSWORD:
