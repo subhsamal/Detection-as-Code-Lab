@@ -56,8 +56,8 @@ jobs:
 
       - name: ⏳ Waiting for Splunk Search Scheduler
         run: |
-          echo "Waiting 150 seconds to ensure the indexing and 2-minute detection cron are complete...."
-          sleep 150
+          echo "Waiting 180 seconds to ensure the indexing and 2-minute detection cron are complete...."
+          sleep 180
 
       - name: 4. Verify Alert & Webhook (E2E Test)
         env:

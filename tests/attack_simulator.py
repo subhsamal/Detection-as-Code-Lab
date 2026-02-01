@@ -78,11 +78,16 @@ def inject_test_events(service):
 
     print(f"\n🚀 Injecting {len(test_cases)} events into Splunk index: {index_name}...")
     
+    unified_time = time.time() # Forces "Now" to close the 21-minute gap
+
     for tc in test_cases:
         event_json = json.dumps(tc["event"])
-        index.submit(event_json, sourcetype="WinEventLog:Security", source="dac_test_suite")
-        status = "✅ [ALERT EXPECTED]" if tc["should_alert"] else "⚪ [BENIGN/IGNORE]"
-        print(f"{status} {tc['description']}")
+        kwargs = {
+            "sourcetype": "WinEventLog:Security",
+            "source": "dac_test_suite",
+            "time": str(unified_time) # The **kwargs approach fixes the TypeError
+        }
+        index.submit(event_json, **kwargs)
 
     time.sleep(120)
 

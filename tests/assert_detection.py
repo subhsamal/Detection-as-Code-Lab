@@ -72,14 +72,14 @@ def verify_alert_history(service):
         # We search the internal audit index you found in your screenshot.
         print(f"--- Step 2: Verifying Alert Execution via Audit Trail (10m window) ---")
         
+        # Update Step 2 in assert_detection.py
         audit_query = (
-            f'search index=_audit sourcetype=audittrail '
-            f'savedsearch_name="{alert_name}" action=search info=completed '
-            f'| head 1 '
-            f'| table _time, event_count'
+            f'search index=_audit savedsearch_name="{alert_name}" action=search info=completed '
+            f'| where event_count >= 2 ' # Specifically look for the run that found your data
+            f'| head 1'
         )
         
-        audit_job = service.jobs.oneshot(audit_query, output_mode="json", earliest_time="-10m")
+        audit_job = service.jobs.oneshot(audit_query, output_mode="json", earliest_time="-15m")
         audit_results = json.loads(audit_job.read())
 
         print(f"🕒 Audit record found from Splunk execution at: {audit_results['results'][0]['_time']}")
