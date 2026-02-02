@@ -104,7 +104,7 @@ def verify_alert_history(service):
         print(f"❌ ERROR in Step 2: {e}")
         return False
 
-    # STEP 3: IMPORTANT - Check if alerts were actually TRIGGERED
+    ##### STEP-3:IMPORTANT - Verifying Triggered Alerts (With Retry Loop for Audit Lag)
     print(f"\n--- Step 3: Verifying Triggered Alerts (THE REAL TEST) ---")
     
     triggered_query = (
@@ -113,32 +113,25 @@ def verify_alert_history(service):
         f'| stats count'
     )
     
-    try:
-        triggered_job = service.jobs.oneshot(triggered_query, output_mode="json", earliest_time="-15m")
-        triggered_results = json.loads(triggered_job.read())
-        
-        if not triggered_results.get("results"):
-            print(f"❌ FAIL: No triggered alerts found for '{alert_name}'")
-            print("   Possible reasons:")
-            print("   1. Alert threshold not met (check alert_threshold in config)")
-            print("   2. Alert suppression prevented firing (check suppress settings)")
-            print("   3. Time window mismatch between search and events")
-            return False
-        
-        triggered_count = int(triggered_results['results'][0].get('count', 0))
-        
-        if triggered_count >= 1:  # At least one alert should have fired, can be tightend
-            print(f"✅ PASS: Alert fired {triggered_count} time(s)")
-            return True
-        else:
-            print(f"❌ FAIL: Expected alerts but count is {triggered_count}")
-            return False
+    max_attempts = 5 # To handle audit log delays
+    for attempt in range(max_attempts):
+        try:
+            triggered_job = service.jobs.oneshot(triggered_query, output_mode="json", earliest_time="-15m")
+            triggered_results = json.loads(triggered_job.read())
+            triggered_count = int(triggered_results['results'][0].get('count', 0)) if triggered_results.get("results") else 0
             
-    except Exception as e:
-        print(f"❌ ERROR in Step 3: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
+            if triggered_count >= 1:
+                print(f"✅ PASS: Alert fired {triggered_count} time(s) (Detected on attempt {attempt + 1})")
+                return True
+            
+            print(f"   [Attempt {attempt + 1}/{max_attempts}] Alert not in audit log yet. Retrying in 10s...")
+            time.sleep(10)
+            
+        except Exception as e:
+            print(f"❌ ERROR in Step 3 attempt {attempt + 1}: {e}")
+            
+    print(f"❌ FAIL: Expected alerts but count is {triggered_count} after multiple retries")
+    return False
 
 def cleanup_old_logs(service):
     """Clean up test data after verification"""
