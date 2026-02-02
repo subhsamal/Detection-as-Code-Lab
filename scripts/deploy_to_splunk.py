@@ -87,9 +87,9 @@ def deploy_detections(service):
             "alert.track": "1", #Enables triggered alert
             
             # ADD THROTTLING
-            "alert.suppress": 1,
-            "alert.suppress.period": "2m",  # Reduced from 10m to 5m
-            "alert.suppress.fields": "Computer, User"
+            # "alert.suppress": 0,
+            # "alert.suppress.period": "2m",  # Reduced from 10m to 5m
+            # "alert.suppress.fields": "Computer, User"
         }
         
         # 5. ADD WEBHOOK ACTION FOR TINES

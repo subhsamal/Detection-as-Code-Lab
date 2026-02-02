@@ -48,7 +48,6 @@ def verify_alert_history(service):
     print(f"--- Step 1: Verifying Raw Logs ---")
     raw_query = (
         'search index=windows sourcetype=WinEventLog:Security source=dac_test_suite '
-        '| spath '  # To fix the field extraction issue
         '| search EventCode=4688 '
         '(CommandLine="*powershell*" OR CommandLine="*pwsh*") '
         '(CommandLine="*-enc*" OR CommandLine="*-encodedcommand*") '
