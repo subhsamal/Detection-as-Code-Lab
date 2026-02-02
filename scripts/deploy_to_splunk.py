@@ -81,15 +81,15 @@ def deploy_detections(service):
             "disabled": 0,
             
             # Use relative time without snap-to (@m)
-            "dispatch.earliest_time": "-15m",
+            "dispatch.earliest_time": "-10m",
             "dispatch.latest_time": "now",
             "dispatch.digest_mode": "0", #Forces Splunk to treat every row as a separate alert
             "alert.track": "1", #Enables triggered alert
             
             # ADD THROTTLING
             "alert.suppress": 0,
-            # "alert.suppress.period": "2m",  # Reduced from 10m to 5m
-            # "alert.suppress.fields": "Computer, User"
+            "alert.suppress.period": "3m",  # Reduced from 10m to 5m
+            "alert.suppress.fields": "Computer, User"
         }
         
         # 5. ADD WEBHOOK ACTION FOR TINES

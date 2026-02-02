@@ -109,7 +109,7 @@ def verify_alert_history(service):
     
     triggered_query = (
         f'search index=_audit action=alert_fired '
-        f'savedsearch_name="{alert_name}" '
+        f'(ss_name="{alert_name}" OR savedsearch_name="{alert_name}") '
         f'| stats count'
     )
     
