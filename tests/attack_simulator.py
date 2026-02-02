@@ -81,16 +81,12 @@ def inject_test_events(service):
     for tc in test_cases:
         event_json = json.dumps(tc["event"])
         
-        # Current time
-        readable_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S') #
-        timestamped_event = f"{readable_time} {event_json}" #
-        
         # Submit using the new timestamped_event string
         index.submit(
-            timestamped_event, 
+            event_json,  # Just the JSON, no timestamp prefix
             sourcetype="WinEventLog:Security", 
             source="dac_test_suite"
-        ) #
+        )
 
         status = "✅ [EXPECT ALERT]" if tc["should_alert"] else "⚪ [BENIGN]"
         print(f"{status} {tc['description']}")
