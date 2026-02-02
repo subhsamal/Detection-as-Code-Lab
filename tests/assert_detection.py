@@ -109,7 +109,7 @@ def verify_alert_history(service):
     print(f"\n--- Step 3: Verifying Triggered Alerts (THE REAL TEST) ---")
     
     triggered_query = (
-        f'search index=_audit action=alert_fired'
+        f'search index=_audit action=alert_fired '
         f'savedsearch_name="{alert_name}" '
         f'| stats count'
     )
@@ -141,17 +141,17 @@ def verify_alert_history(service):
         traceback.print_exc()
         return False
 
-def cleanup_old_logs(service):
-    """Clean up test data after verification"""
-    print(f"\n{'='*70}")
-    print("CLEANUP: Removing test data")
-    print(f"{'='*70}\n")
+# def cleanup_old_logs(service):
+#     """Clean up test data after verification"""
+#     print(f"\n{'='*70}")
+#     print("CLEANUP: Removing test data")
+#     print(f"{'='*70}\n")
     
-    try:
-        service.jobs.oneshot("search index=windows source=dac_test_suite | delete")
-        print("✅ Test data cleaned up successfully")
-    except Exception as e:
-        print(f"⚠️ Cleanup failed (this is OK if 'can_delete' role not assigned): {e}")
+#     try:
+#         service.jobs.oneshot("search index=windows source=dac_test_suite | delete")
+#         print("✅ Test data cleaned up successfully")
+#     except Exception as e:
+#         print(f"⚠️ Cleanup failed (this is OK if 'can_delete' role not assigned): {e}")
 
 def main():
     if not SPLUNK_PASSWORD:
@@ -174,7 +174,7 @@ def main():
     success = verify_alert_history(service)
 
     # Always cleanup or alert will trigger continously
-    cleanup_old_logs(service)
+    # cleanup_old_logs(service)
 
     # Final verdict
     print(f"\n{'='*70}")

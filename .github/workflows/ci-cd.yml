@@ -59,7 +59,7 @@ jobs:
           echo "Waiting 180 seconds to ensure the indexing and 2-minute detection cron are complete...."
           sleep 180
 
-      - name: 4. Verify Alert & Webhook (E2E Test)
+      - name: 4. Verify Alert & Webhook (E2E Test) and Clean-up test logs
         env:
           SPLUNK_HOST: ${{ secrets.SPLUNK_HOST }}
           SPLUNK_PORT: ${{ secrets.SPLUNK_PORT }}
