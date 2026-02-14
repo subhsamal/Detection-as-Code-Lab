@@ -110,15 +110,6 @@ def deploy_detections(service):
             print(f"🚀 Creating new alert '{alert_name}' {webhook_status}...")
             service.saved_searches.create(alert_name, search_query.strip(), **alert_params)
             print(f"🚀 SUCCESS: Alert '{alert_name}' created.")
-        
-        # Force webhook action via REST (most reliable)
-        service.post(f"saved/searches/{alert_name}", **{
-            "actions": "webhook",
-            "action.webhook": "1",
-            "action.webhook.param.url": TINES_WEBHOOK_URL,
-            "action.webhook.param.method": "POST",
-        })
-        print("✅ Webhook action applied via REST")
 
         return True
     

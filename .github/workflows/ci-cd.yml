@@ -44,6 +44,7 @@ jobs:
           SPLUNK_HOST: ${{ secrets.SPLUNK_HOST }}
           SPLUNK_PORT: ${{ secrets.SPLUNK_PORT }}
           SPLUNK_PASSWORD: ${{ secrets.SPLUNK_PASSWORD }}
+          TINES_WEBHOOK_URL: ${{ secrets.TINES_WEBHOOK_URL }}
           SPLUNK_USERNAME: 'admin'
         run: python scripts/deploy_to_splunk.py
 
