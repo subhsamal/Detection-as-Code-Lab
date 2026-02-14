@@ -95,8 +95,9 @@ def deploy_detections(service):
         # 5. ADD WEBHOOK ACTION FOR TINES
         if TINES_WEBHOOK_URL:
             alert_params["actions"] = "webhook"
-            alert_params["action.webhook"] = 1
+            alert_params["action.webhook"] = "1"
             alert_params["action.webhook.param.url"] = TINES_WEBHOOK_URL
+            alert_params["action.webhook.param.method"] = "POST" 
             webhook_status = "✅ with Tines webhook"
             print(f"Webhook: Configured for {TINES_WEBHOOK_URL[:50]}...")
         else:
