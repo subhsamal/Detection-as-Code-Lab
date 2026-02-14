@@ -93,8 +93,12 @@ def deploy_detections(service):
             alert_params["action.webhook"] = "1"
             alert_params["action.webhook.param.url"] = TINES_WEBHOOK_URL
             alert_params["action.webhook.param.method"] = "POST" 
-            webhook_status = "✅ with Tines webhook"
-            print(f"Webhook: Configured for {TINES_WEBHOOK_URL[:50]}...")
+
+        # Force per-result alerting behavior (prevents digesting/bundling)
+            alert_params["alert.digest_mode"] = "0"
+            alert_params["dispatch.digest_mode"] = "0"
+            webhook_status = "Tines webhook"
+            print(f"🔄 Alert '{alert_name}' exists. Updating {webhook_status}...")
         else:
             webhook_status = "⚠️ without webhook (TINES_WEBHOOK_URL not set)"
             print(f"Webhook: Not configured - TINES_WEBHOOK_URL is empty")
